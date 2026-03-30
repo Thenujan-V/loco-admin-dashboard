@@ -1,0 +1,8 @@
+src/_mock/index.ts(16,15): error TS2307: Cannot find module './_connections' or its corresponding type declarations.
+src/auth/context/jwt/auth-provider.tsx(62,24): error TS2304: Cannot find name 'useVerifyUserMutation'.
+src/auth/context/jwt/auth-provider.tsx(63,23): error TS2304: Cannot find name 'useVerifyDeviceMutation'.
+src/auth/context/jwt/auth-provider.tsx(64,23): error TS2304: Cannot find name 'useResendOtpMutation'.
+src/sections/auth/forgot-password-otp-view.tsx(71,43): error TS2339: Property 'unwrap' does not exist on type 'Promise<{ unwrap: () => Promise<{ content: { resetToken: string; }; }>; }>'.
+src/sections/auth/forgot-password-otp-view.tsx(84,60): error TS2339: Property 'unwrap' does not exist on type 'Promise<{ unwrap: () => Promise<{}>; }>'.
+src/sections/auth/forgot-password-view.tsx(49,30): error TS2339: Property 'unwrap' does not exist on type 'Promise<{ unwrap: () => Promise<{}>; }>'.
+src/sections/auth/new-password-view.tsx(70,49): error TS2339: Property 'unwrap' does not exist on type 'Promise<{ unwrap: () => Promise<{}>; }>'.

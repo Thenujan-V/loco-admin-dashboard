@@ -1,0 +1,40 @@
+
+
+const ROOTS = {
+  AUTH: '/auth',
+  DASHBOARD: '/dashboard',
+};
+
+
+export const paths = {
+  minimalUI: 'https://mui.com/store/items/minimal-dashboard/',
+  // AUTH
+  auth: {
+    login: `${ROOTS.AUTH}/login`,
+    register: `${ROOTS.AUTH}/register`,
+    otp: `${ROOTS.AUTH}/otp`,
+    forgotPW: `${ROOTS.AUTH}/forgot-password`,
+    forgotPWOTP: `${ROOTS.AUTH}/forgot-password/otp`,
+    resetPW: `${ROOTS.AUTH}/forgot-password/reset-password`,
+  },
+  // DASHBOARD
+  dashboard: {
+    root: ROOTS.DASHBOARD,
+    users: {
+      root: `${ROOTS.DASHBOARD}/users`,
+    },
+    orders: {
+      root: `${ROOTS.DASHBOARD}/orders`,
+    },
+    menu: {
+      root: `${ROOTS.DASHBOARD}/menu`,
+      categories: `${ROOTS.DASHBOARD}/menu/categories`,
+      items: `${ROOTS.DASHBOARD}/menu/items`,
+    },
+    trainInfo: {
+      root: `${ROOTS.DASHBOARD}/train-info`,
+      stations: `${ROOTS.DASHBOARD}/train-info/stations`,
+      trains: `${ROOTS.DASHBOARD}/train-info/trains`,
+    },
+  },
+};

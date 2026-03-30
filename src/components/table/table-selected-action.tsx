@@ -1,0 +1,75 @@
+import React from 'react';
+import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
+import Stack, { StackProps } from '@mui/material/Stack';
+import { SxProps, Theme } from '@mui/material/styles';
+
+// ----------------------------------------------------------------------
+
+interface TableSelectedActionProps extends StackProps {
+  action?: React.ReactNode;
+  dense?: boolean;
+  numSelected?: number;
+  rowCount?: number;
+  onSelectAllRows?: (checked: boolean) => void;
+  sx?: SxProps<Theme>;
+}
+
+export default function TableSelectedAction({
+  dense,
+  action,
+  rowCount = 0,
+  numSelected = 0,
+  onSelectAllRows,
+  sx,
+  ...other
+}: TableSelectedActionProps) {
+  if (!numSelected) {
+    return null;
+  }
+
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      sx={{
+        pl: 1,
+        pr: 2,
+        top: 0,
+        left: 0,
+        width: 1,
+        zIndex: 9,
+        height: 58,
+        position: 'absolute',
+        bgcolor: 'primary.lighter',
+        ...(dense && {
+          height: 38,
+        }),
+        ...sx,
+      }}
+      {...other}
+    >
+      <Checkbox
+        indeterminate={!!numSelected && numSelected < rowCount}
+        checked={!!rowCount && numSelected === rowCount}
+        onChange={(event) => onSelectAllRows?.(event.target.checked)}
+      />
+
+      <Typography
+        variant="subtitle2"
+        sx={{
+          ml: 2,
+          flexGrow: 1,
+          color: 'primary.main',
+          ...(dense && {
+            ml: 3,
+          }),
+        }}
+      >
+        {numSelected} selected
+      </Typography>
+
+      {action && action}
+    </Stack>
+  );
+}
