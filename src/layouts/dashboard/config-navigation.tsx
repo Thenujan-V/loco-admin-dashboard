@@ -77,6 +77,26 @@ export function useNavData() {
             title: 'Train Schedule',
             path: paths.dashboard.trainSchedule.root,
             icon: ICONS.calendar,
+            children: [
+              { title: 'Scheduling', path: paths.dashboard.trainSchedule.scheduling },
+              { title: 'Station Stops', path: paths.dashboard.trainSchedule.stationStops },
+            ],
+          },
+          {
+            title: 'Restaurants Info',
+            path: paths.dashboard.restaurants.root,
+            icon: ICONS.tour,
+            children: [
+              { title: 'List', path: paths.dashboard.restaurants.list },
+            ],
+          },
+          {
+            title: 'Pickup Person',
+            path: paths.dashboard.pickupPerson.root,
+            icon: ICONS.user,
+            children: [
+              { title: 'List', path: paths.dashboard.pickupPerson.list },
+            ],
           },
         ],
       },

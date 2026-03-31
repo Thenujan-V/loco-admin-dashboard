@@ -16,6 +16,9 @@ import TablePagination from '@mui/material/TablePagination';
 import Box from '@mui/material/Box';
 import Label from 'src/components/label';
 
+import { useRouter } from 'src/routes/hooks';
+import { paths } from 'src/routes/paths';
+
 import Iconify from 'src/components/iconify';
 import SchedulingAddEditDialog, { SchedulePayload, MOCK_TRAINS, MOCK_ROUTES } from '../scheduling-add-edit-dialog';
 import { Stack } from '@mui/material';
@@ -28,6 +31,8 @@ export default function SchedulingListView() {
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  const router = useRouter();
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState<SchedulePayload | null>(null);
@@ -45,6 +50,10 @@ export default function SchedulingListView() {
     setCurrentSchedule(row);
     setOpenAddDialog(true);
   }, []);
+
+  const handleViewRow = useCallback((id: string) => {
+    router.push(paths.dashboard.trainSchedule.schedulingDetails(id));
+  }, [router]);
 
   const handleDeleteRow = useCallback((id: string) => {
     const deleteRow = tableData.filter((row) => row.id !== id);
@@ -147,6 +156,12 @@ export default function SchedulingListView() {
                       <TableCell>{row.dayOffset}</TableCell>
                       
                       <TableCell align="right">
+                        <Tooltip title="View Overview">
+                          <IconButton color="primary" onClick={() => handleViewRow(row.id as string)}>
+                            <Iconify icon="solar:eye-bold" />
+                          </IconButton>
+                        </Tooltip>
+
                         <Tooltip title="Edit">
                           <IconButton color="default" onClick={() => handleEditRow(row)}>
                             <Iconify icon="solar:pen-bold" />

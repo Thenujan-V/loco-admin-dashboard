@@ -41,6 +41,19 @@ export const paths = {
     },
     trainSchedule: {
       root: `${ROOTS.DASHBOARD}/train-schedule`,
+      scheduling: `${ROOTS.DASHBOARD}/train-schedule/scheduling`,
+      stationStops: `${ROOTS.DASHBOARD}/train-schedule/station-stops`,
+      schedulingDetails: (id: string) => `${ROOTS.DASHBOARD}/train-schedule/scheduling/${id}`,
+    },
+    restaurants: {
+      root: `${ROOTS.DASHBOARD}/restaurants`,
+      list: `${ROOTS.DASHBOARD}/restaurants/list`,
+      details: (id: string) => `${ROOTS.DASHBOARD}/restaurants/${id}`,
+    },
+    pickupPerson: {
+      root: `${ROOTS.DASHBOARD}/pickup-person`,
+      list: `${ROOTS.DASHBOARD}/pickup-person/list`,
+      details: (id: string) => `${ROOTS.DASHBOARD}/pickup-person/${id}`,
     },
   },
 };

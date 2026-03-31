@@ -20,6 +20,15 @@ const RoutesPage = lazy(() => import('src/pages/dashboard/train-info/routes/rout
 const LinesPage = lazy(() => import('src/pages/dashboard/train-info/lines/lines'));
 const LineStationsPage = lazy(() => import('src/pages/dashboard/train-info/line-stations/line-stations'));
 const SchedulingPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/scheduling'));
+const SchedulingDetailsPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/details'));
+const StationStopsPage = lazy(() => import('src/pages/dashboard/train-schedule/station-stops/station-stops'));
+
+const RestaurantListPage = lazy(() => import('src/pages/dashboard/restaurants/list'));
+const RestaurantDetailsPage = lazy(() => import('src/pages/dashboard/restaurants/details'));
+
+const PickupPersonListPage = lazy(() => import('src/pages/dashboard/pickup-person/list'));
+const PickupPersonDetailsPage = lazy(() => import('src/pages/dashboard/pickup-person/details'));
+
 export const dashboardRoutes = [
   {
     path: 'dashboard',
@@ -65,7 +74,28 @@ export const dashboardRoutes = [
       },
       {
         path: 'train-schedule',
-        element: <SchedulingPage />,
+        children: [
+          { element: <SchedulingPage />, index: true },
+          { path: 'scheduling', element: <SchedulingPage /> },
+          { path: 'scheduling/:id', element: <SchedulingDetailsPage /> },
+          { path: 'station-stops', element: <StationStopsPage /> },
+        ],
+      },
+      {
+        path: 'restaurants',
+        children: [
+          { element: <RestaurantListPage />, index: true },
+          { path: 'list', element: <RestaurantListPage /> },
+          { path: ':id', element: <RestaurantDetailsPage /> },
+        ],
+      },
+      {
+        path: 'pickup-person',
+        children: [
+          { element: <PickupPersonListPage />, index: true },
+          { path: 'list', element: <PickupPersonListPage /> },
+          { path: ':id', element: <PickupPersonDetailsPage /> },
+        ],
       },
     ],
   },
