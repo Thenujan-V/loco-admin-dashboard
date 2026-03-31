@@ -112,6 +112,7 @@ export function useNavData() {
             icon: ICONS.ecommerce,
             children: [
               { title: 'Categories', path: paths.dashboard.foods.categories },
+              { title: 'Default Items', path: paths.dashboard.foods.defaultItems },
             ],
           },
         ],

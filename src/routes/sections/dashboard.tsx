@@ -33,6 +33,7 @@ const DeliveryPersonListPage = lazy(() => import('src/pages/dashboard/delivery-p
 const DeliveryPersonDetailsPage = lazy(() => import('src/pages/dashboard/delivery-person/details'));
 
 const FoodCategoriesPage = lazy(() => import('src/pages/dashboard/foods/categories/categories'));
+const FoodDefaultItemsPage = lazy(() => import('src/pages/dashboard/foods/default-items/default-items'));
 
 export const dashboardRoutes = [
   {
@@ -115,6 +116,7 @@ export const dashboardRoutes = [
         children: [
           { element: <FoodCategoriesPage />, index: true },
           { path: 'categories', element: <FoodCategoriesPage /> },
+          { path: 'default-items', element: <FoodDefaultItemsPage /> },
         ],
       },
     ],

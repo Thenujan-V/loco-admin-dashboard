@@ -63,6 +63,7 @@ export const paths = {
     foods: {
       root: `${ROOTS.DASHBOARD}/foods`,
       categories: `${ROOTS.DASHBOARD}/foods/categories`,
+      defaultItems: `${ROOTS.DASHBOARD}/foods/default-items`,
     },
   },
 };
