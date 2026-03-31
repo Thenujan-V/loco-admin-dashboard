@@ -24,6 +24,7 @@ export default function RHFAutocomplete({
   ...other
 }: RHFAutocomplete): JSX.Element {
   const { control, setValue } = useFormContext();
+  const isMultiple = Boolean(other.multiple);
 
   return (
     <Controller
@@ -33,14 +34,25 @@ export default function RHFAutocomplete({
         <Autocomplete
           {...other}
           value={
-            other.options?.find(
-              (option: any) => option.value === field.value
-            ) ?? null
+            isMultiple
+              ? (other.options ?? []).filter((option: any) =>
+                  Array.isArray(field.value) ? field.value.includes(option.value) : false
+                )
+              : other.options?.find((option: any) => option.value === field.value) ?? null
           }
+          isOptionEqualToValue={(option: any, value: any) => option.value === value?.value}
           onChange={(_event, newValue) =>
-            setValue(name, newValue?.value ?? null, {
-              shouldValidate: true,
-            })
+            setValue(
+              name,
+              isMultiple
+                ? Array.isArray(newValue)
+                  ? newValue.map((option: any) => option.value)
+                  : []
+                : newValue?.value ?? null,
+              {
+                shouldValidate: true,
+              }
+            )
           }
           onBlur={field.onBlur}
           renderInput={(params) => (
