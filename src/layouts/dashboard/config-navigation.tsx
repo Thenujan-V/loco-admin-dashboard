@@ -68,7 +68,15 @@ export function useNavData() {
             children: [
               { title: 'Stations', path: paths.dashboard.trainInfo.stations },
               { title: 'Trains', path: paths.dashboard.trainInfo.trains },
+              { title: 'Routes', path: paths.dashboard.trainInfo.routes },
+              { title: 'Lines', path: paths.dashboard.trainInfo.lines },
+              { title: 'Line Stations', path: paths.dashboard.trainInfo.lineStations },
             ],
+          },
+          {
+            title: 'Train Schedule',
+            path: paths.dashboard.trainSchedule.root,
+            icon: ICONS.calendar,
           },
         ],
       },

@@ -16,19 +16,19 @@ import TablePagination from '@mui/material/TablePagination';
 import Box from '@mui/material/Box';
 
 import Iconify from 'src/components/iconify';
-import TrainAddEditDialog, { TrainItem } from '../train-add-edit-dialog';
+import LineAddEditDialog, { LineItem, MOCK_STATIONS } from '../line-add-edit-dialog';
 
-export default function TrainListView() {
-  const [tableData, setTableData] = useState<TrainItem[]>([
-    { id: '12001', name: 'Shatabdi Express', type: 'Superfast' },
-    { id: '12951', name: 'Rajdhani Express', type: 'Rajdhani' },
+export default function LineListView() {
+  const [tableData, setTableData] = useState<LineItem[]>([
+    { id: '1', name: 'Red Line', startStationId: 101, endStationId: 102 },
+    { id: '2', name: 'Blue Line', startStationId: 103, endStationId: 104 },
   ]);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [currentTrain, setCurrentTrain] = useState<TrainItem | null>(null);
+  const [currentLine, setCurrentLine] = useState<LineItem | null>(null);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -39,8 +39,8 @@ export default function TrainListView() {
     setPage(0);
   };
 
-  const handleEditRow = useCallback((row: TrainItem) => {
-    setCurrentTrain(row);
+  const handleEditRow = useCallback((row: LineItem) => {
+    setCurrentLine(row);
     setOpenAddDialog(true);
   }, []);
 
@@ -54,45 +54,47 @@ export default function TrainListView() {
     }
   }, [page, rowsPerPage, tableData]);
 
-  const handleSaveTrains = useCallback((newTrains: TrainItem[]) => {
+  const handleSaveLines = useCallback((newLines: LineItem[]) => {
     setTableData((prevData) => {
-      // If editing existing
-      if (currentTrain) {
-        return prevData.map((train) =>
-          train.id === currentTrain.id ? newTrains[0] : train
+      if (currentLine) {
+        return prevData.map((line) =>
+          line.id === currentLine.id ? { ...newLines[0], id: line.id } : line
         );
       }
       
-      // If adding new
-      const generatedTrains = newTrains.map((t, index) => ({
-        ...t,
-        id: new Date().getTime().toString() + index, // mock id generator
+      const generatedLines = newLines.map((l, index) => ({
+        ...l,
+        id: (new Date().getTime() + index).toString(),
       }));
-      return [...prevData, ...generatedTrains];
+      return [...prevData, ...generatedLines];
     });
-  }, [currentTrain]);
+  }, [currentLine]);
 
-  const handleNewTrain = () => {
-    setCurrentTrain(null);
+  const handleNewLine = () => {
+    setCurrentLine(null);
     setOpenAddDialog(true);
   };
 
   // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const getStationName = (id: number | null) => {
+    return MOCK_STATIONS.find((s) => s.value === id)?.label || 'Unknown';
+  };
+
   return (
     <>
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-          <Typography variant="h4">Trains</Typography>
+          <Typography variant="h4">Lines</Typography>
           
           <Button
             variant="contained"
             color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
-            onClick={handleNewTrain}
+            onClick={handleNewLine}
           >
-            New Train
+            New Line
           </Button>
         </Box>
 
@@ -103,7 +105,8 @@ export default function TrainListView() {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Name</TableCell>
-                  <TableCell>Type</TableCell>
+                  <TableCell>Start Station</TableCell>
+                  <TableCell>End Station</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -113,7 +116,8 @@ export default function TrainListView() {
                   <TableRow key={row.id} hover>
                     <TableCell>{row.id}</TableCell>
                     <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.type}</TableCell>
+                    <TableCell>{getStationName(row.startStationId)}</TableCell>
+                    <TableCell>{getStationName(row.endStationId)}</TableCell>
                     
                     <TableCell align="right">
                       <Tooltip title="Edit">
@@ -133,8 +137,8 @@ export default function TrainListView() {
 
                 {tableData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                      <Typography variant="subtitle1">No trains found</Typography>
+                    <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                      <Typography variant="subtitle1">No lines found</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -155,11 +159,11 @@ export default function TrainListView() {
       </Container>
 
       {openAddDialog && (
-        <TrainAddEditDialog
+        <LineAddEditDialog
           open={openAddDialog}
-          currentTrain={currentTrain}
+          currentLine={currentLine}
           onClose={() => setOpenAddDialog(false)}
-          onSave={handleSaveTrains}
+          onSave={handleSaveLines}
         />
       )}
     </>

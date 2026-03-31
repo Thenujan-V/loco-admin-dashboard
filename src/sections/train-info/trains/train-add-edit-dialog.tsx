@@ -10,48 +10,45 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
-import Box from '@mui/material/Box';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField } from 'src/components/hook-form';
 
-export type StationItem = {
+export type TrainItem = {
   id?: string;
   name: string;
-  longitude: string;
-  latitude: string;
+  type: string;
 };
 
 type Props = {
   open: boolean;
   onClose: VoidFunction;
-  currentStation?: StationItem | null;
-  onSave: (stations: StationItem[]) => void;
+  currentTrain?: TrainItem | null;
+  onSave: (trains: TrainItem[]) => void;
 };
 
 type FormValuesProps = {
-  stations: StationItem[];
+  trains: TrainItem[];
 };
 
-export default function StationAddEditDialog({ open, onClose, currentStation, onSave }: Props) {
-  const isEdit = !!currentStation;
+export default function TrainAddEditDialog({ open, onClose, currentTrain, onSave }: Props) {
+  const isEdit = !!currentTrain;
 
-  const StationSchema = Yup.object().shape({
-    stations: Yup.array().of(
+  const TrainSchema = Yup.object().shape({
+    trains: Yup.array().of(
       Yup.object().shape({
-        name: Yup.string().required('Name is required'),
-        longitude: Yup.string().required('Longitude is required'),
-        latitude: Yup.string().required('Latitude is required'),
+        name: Yup.string().required('Train Name is required'),
+        type: Yup.string().required('Train Type is required'),
       })
     ),
   });
 
   const defaultValues = {
-    stations: currentStation ? [currentStation] : [{ name: '', longitude: '', latitude: '' }],
+    trains: currentTrain ? [currentTrain] : [{ name: '', type: '' }],
   };
 
   const methods = useForm<FormValuesProps>({
-    resolver: yupResolver(StationSchema as any) as any,
+    resolver: yupResolver(TrainSchema as any) as any,
     defaultValues,
   });
 
@@ -59,7 +56,7 @@ export default function StationAddEditDialog({ open, onClose, currentStation, on
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'stations',
+    name: 'trains',
   });
 
   useEffect(() => {
@@ -67,27 +64,24 @@ export default function StationAddEditDialog({ open, onClose, currentStation, on
       reset(defaultValues);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, currentStation]);
+  }, [open, currentTrain]);
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.stations);
+    onSave(data.trains);
     onClose();
   });
 
   return (
     <Dialog fullWidth maxWidth="md" open={open} onClose={onClose}>
       <FormProvider methods={methods} onSubmit={onSubmit}>
-        <DialogTitle>{isEdit ? 'Edit Station' : 'Add Station'}</DialogTitle>
+        <DialogTitle>{isEdit ? 'Edit Train' : 'Add Train'}</DialogTitle>
 
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {fields.map((item, index) => (
               <Stack key={item.id} spacing={2} direction="row" alignItems="center">
-                <Box display="grid" gridTemplateColumns="repeat(3, 1fr)" gap={2} sx={{ flex: 1 }}>
-                  <RHFTextField name={`stations.${index}.name`} label="Station Name" />
-                  <RHFTextField name={`stations.${index}.longitude`} label="Longitude" />
-                  <RHFTextField name={`stations.${index}.latitude`} label="Latitude" />
-                </Box>
+                <RHFTextField name={`trains.${index}.name`} label="Train Name" />
+                <RHFTextField name={`trains.${index}.type`} label="Train Type" />
                 
                 {!isEdit && fields.length > 1 && (
                   <IconButton color="error" onClick={() => remove(index)}>
@@ -102,10 +96,10 @@ export default function StationAddEditDialog({ open, onClose, currentStation, on
                 size="small"
                 color="primary"
                 startIcon={<Iconify icon="mingcute:add-line" />}
-                onClick={() => append({ name: '', longitude: '', latitude: '' })}
+                onClick={() => append({ name: '', type: '' })}
                 sx={{ alignSelf: 'flex-start' }}
               >
-                Add Another Station
+                Add Another Train
               </Button>
             )}
           </Stack>

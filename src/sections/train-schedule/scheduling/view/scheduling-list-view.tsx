@@ -1,0 +1,199 @@
+import { useState, useCallback } from 'react';
+
+import Card from '@mui/material/Card';
+import Table from '@mui/material/Table';
+import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
+import TableRow from '@mui/material/TableRow';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
+import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
+import Box from '@mui/material/Box';
+import Label from 'src/components/label';
+
+import Iconify from 'src/components/iconify';
+import SchedulingAddEditDialog, { SchedulePayload, MOCK_TRAINS, MOCK_ROUTES } from '../scheduling-add-edit-dialog';
+import { Stack } from '@mui/material';
+
+export default function SchedulingListView() {
+  const [tableData, setTableData] = useState<SchedulePayload[]>([
+    { id: '1', trainId: 1, routeId: 10, day: ['Monday', 'Tuesday'], dayOffset: 0 },
+    { id: '2', trainId: 2, routeId: 12, day: ['Saturday', 'Sunday'], dayOffset: 1 },
+  ]);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [currentSchedule, setCurrentSchedule] = useState<SchedulePayload | null>(null);
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleEditRow = useCallback((row: SchedulePayload) => {
+    setCurrentSchedule(row);
+    setOpenAddDialog(true);
+  }, []);
+
+  const handleDeleteRow = useCallback((id: string) => {
+    const deleteRow = tableData.filter((row) => row.id !== id);
+    setTableData(deleteRow);
+    
+    // adjust page if deleting the last item on the page
+    if (page > 0 && deleteRow.length <= page * rowsPerPage) {
+      setPage(page - 1);
+    }
+  }, [page, rowsPerPage, tableData]);
+
+  const handleSaveSchedules = useCallback((newSchedules: SchedulePayload[]) => {
+    setTableData((prevData) => {
+      if (currentSchedule) {
+        return prevData.map((schedule) =>
+          schedule.id === currentSchedule.id ? { ...newSchedules[0], id: schedule.id } : schedule
+        );
+      }
+      
+      const generatedSchedules = newSchedules.map((s, index) => ({
+        ...s,
+        id: (new Date().getTime() + index).toString(),
+      }));
+      return [...prevData, ...generatedSchedules];
+    });
+  }, [currentSchedule]);
+
+  const handleNewSchedule = () => {
+    setCurrentSchedule(null);
+    setOpenAddDialog(true);
+  };
+
+  // Pagination slice
+  const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  const getTrain = (id: number | null) => {
+    return MOCK_TRAINS.find((t) => t.value === id) || { label: 'Unknown', type: 'Unknown' };
+  };
+
+  const getRoute = (id: number | null) => {
+    return MOCK_ROUTES.find((r) => r.value === id) || { label: 'Unknown', isReverse: false };
+  };
+
+  return (
+    <>
+      <Container maxWidth={false}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
+          <Typography variant="h4">Scheduling</Typography>
+          
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<Iconify icon="mingcute:add-line" />}
+            onClick={handleNewSchedule}
+          >
+            New Schedule
+          </Button>
+        </Box>
+
+        <Card>
+          <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
+            <Table sx={{ minWidth: 800 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Train Name</TableCell>
+                  <TableCell>Train Type</TableCell>
+                  <TableCell>Route Name</TableCell>
+                  <TableCell>Route Reversed</TableCell>
+                  <TableCell>Days Running</TableCell>
+                  <TableCell>Day Offset</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {paginatedData.map((row) => {
+                  const train = getTrain(row.trainId);
+                  const route = getRoute(row.routeId);
+
+                  return (
+                    <TableRow key={row.id} hover>
+                      <TableCell>{train.label}</TableCell>
+                      <TableCell>{train.type}</TableCell>
+                      <TableCell>{route.label}</TableCell>
+                      <TableCell>
+                         <Label color={route.isReverse ? 'warning' : 'success'}>
+                           {route.isReverse ? 'Yes' : 'No'}
+                         </Label>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                          {row.day?.slice(0, 2).map((d) => (
+                             <Label key={d} color="info">{d}</Label>
+                          ))}
+                          {row.day?.length > 2 && (
+                             <Label color="info">+{row.day.length - 2} more</Label>
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{row.dayOffset}</TableCell>
+                      
+                      <TableCell align="right">
+                        <Tooltip title="Edit">
+                          <IconButton color="default" onClick={() => handleEditRow(row)}>
+                            <Iconify icon="solar:pen-bold" />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Delete">
+                          <IconButton color="error" onClick={() => handleDeleteRow(row.id as string)}>
+                            <Iconify icon="solar:trash-bin-trash-bold" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {tableData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                      <Typography variant="subtitle1">No schedules found</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <TablePagination
+            component="div"
+            page={page}
+            count={tableData.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handleChangePage}
+            rowsPerPageOptions={[5, 10, 25]}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Card>
+      </Container>
+
+      {openAddDialog && (
+        <SchedulingAddEditDialog
+          open={openAddDialog}
+          currentSchedule={currentSchedule}
+          onClose={() => setOpenAddDialog(false)}
+          onSave={handleSaveSchedules}
+        />
+      )}
+    </>
+  );
+}

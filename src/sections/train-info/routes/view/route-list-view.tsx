@@ -14,21 +14,22 @@ import IconButton from '@mui/material/IconButton';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 import Box from '@mui/material/Box';
+import Label from 'src/components/label';
 
 import Iconify from 'src/components/iconify';
-import TrainAddEditDialog, { TrainItem } from '../train-add-edit-dialog';
+import RouteAddEditDialog, { RouteItem, MOCK_STATIONS } from '../route-add-edit-dialog';
 
-export default function TrainListView() {
-  const [tableData, setTableData] = useState<TrainItem[]>([
-    { id: '12001', name: 'Shatabdi Express', type: 'Superfast' },
-    { id: '12951', name: 'Rajdhani Express', type: 'Rajdhani' },
+export default function RouteListView() {
+  const [tableData, setTableData] = useState<RouteItem[]>([
+    { id: '101', name: 'Downtown Express', lineId: 1, startStationId: 101, endStationId: 104, isReverse: false },
+    { id: '102', name: 'Valley Loop', lineId: 2, startStationId: 102, endStationId: 105, isReverse: true },
   ]);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [currentTrain, setCurrentTrain] = useState<TrainItem | null>(null);
+  const [currentRoute, setCurrentRoute] = useState<RouteItem | null>(null);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -39,8 +40,8 @@ export default function TrainListView() {
     setPage(0);
   };
 
-  const handleEditRow = useCallback((row: TrainItem) => {
-    setCurrentTrain(row);
+  const handleEditRow = useCallback((row: RouteItem) => {
+    setCurrentRoute(row);
     setOpenAddDialog(true);
   }, []);
 
@@ -54,45 +55,47 @@ export default function TrainListView() {
     }
   }, [page, rowsPerPage, tableData]);
 
-  const handleSaveTrains = useCallback((newTrains: TrainItem[]) => {
+  const handleSaveRoutes = useCallback((newRoutes: RouteItem[]) => {
     setTableData((prevData) => {
-      // If editing existing
-      if (currentTrain) {
-        return prevData.map((train) =>
-          train.id === currentTrain.id ? newTrains[0] : train
+      if (currentRoute) {
+        return prevData.map((route) =>
+          route.id === currentRoute.id ? { ...newRoutes[0], id: route.id } : route
         );
       }
       
-      // If adding new
-      const generatedTrains = newTrains.map((t, index) => ({
-        ...t,
-        id: new Date().getTime().toString() + index, // mock id generator
+      const generatedRoutes = newRoutes.map((r, index) => ({
+        ...r,
+        id: (new Date().getTime() + index).toString(),
       }));
-      return [...prevData, ...generatedTrains];
+      return [...prevData, ...generatedRoutes];
     });
-  }, [currentTrain]);
+  }, [currentRoute]);
 
-  const handleNewTrain = () => {
-    setCurrentTrain(null);
+  const handleNewRoute = () => {
+    setCurrentRoute(null);
     setOpenAddDialog(true);
   };
 
   // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const getStationName = (id: number | null) => {
+    return MOCK_STATIONS.find((s) => s.value === id)?.label || 'Unknown';
+  };
+
   return (
     <>
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-          <Typography variant="h4">Trains</Typography>
+          <Typography variant="h4">Routes</Typography>
           
           <Button
             variant="contained"
             color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
-            onClick={handleNewTrain}
+            onClick={handleNewRoute}
           >
-            New Train
+            New Route
           </Button>
         </Box>
 
@@ -103,7 +106,9 @@ export default function TrainListView() {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Name</TableCell>
-                  <TableCell>Type</TableCell>
+                  <TableCell>Start Station</TableCell>
+                  <TableCell>End Station</TableCell>
+                  <TableCell>Is Reversed</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -113,7 +118,13 @@ export default function TrainListView() {
                   <TableRow key={row.id} hover>
                     <TableCell>{row.id}</TableCell>
                     <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.type}</TableCell>
+                    <TableCell>{getStationName(row.startStationId)}</TableCell>
+                    <TableCell>{getStationName(row.endStationId)}</TableCell>
+                    <TableCell>
+                      <Label color={row.isReverse ? 'warning' : 'success'}>
+                        {row.isReverse ? 'Yes' : 'No'}
+                      </Label>
+                    </TableCell>
                     
                     <TableCell align="right">
                       <Tooltip title="Edit">
@@ -133,8 +144,8 @@ export default function TrainListView() {
 
                 {tableData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                      <Typography variant="subtitle1">No trains found</Typography>
+                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                      <Typography variant="subtitle1">No routes found</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -155,11 +166,11 @@ export default function TrainListView() {
       </Container>
 
       {openAddDialog && (
-        <TrainAddEditDialog
+        <RouteAddEditDialog
           open={openAddDialog}
-          currentTrain={currentTrain}
+          currentRoute={currentRoute}
           onClose={() => setOpenAddDialog(false)}
-          onSave={handleSaveTrains}
+          onSave={handleSaveRoutes}
         />
       )}
     </>

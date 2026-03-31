@@ -16,7 +16,10 @@ const CategoriesPage = lazy(() => import('src/pages/dashboard/menu/categories/ca
 const ItemsPage = lazy(() => import('src/pages/dashboard/menu/items/items'));
 const StationsPage = lazy(() => import('src/pages/dashboard/train-info/stations/stations'));
 const TrainsPage = lazy(() => import('src/pages/dashboard/train-info/trains/trains'));
-
+const RoutesPage = lazy(() => import('src/pages/dashboard/train-info/routes/routes'));
+const LinesPage = lazy(() => import('src/pages/dashboard/train-info/lines/lines'));
+const LineStationsPage = lazy(() => import('src/pages/dashboard/train-info/line-stations/line-stations'));
+const SchedulingPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/scheduling'));
 export const dashboardRoutes = [
   {
     path: 'dashboard',
@@ -55,7 +58,14 @@ export const dashboardRoutes = [
         children: [
           { path: 'stations', element: <StationsPage /> },
           { path: 'trains', element: <TrainsPage /> },
+          { path: 'routes', element: <RoutesPage /> },
+          { path: 'lines', element: <LinesPage /> },
+          { path: 'line-stations', element: <LineStationsPage /> },
         ],
+      },
+      {
+        path: 'train-schedule',
+        element: <SchedulingPage />,
       },
     ],
   },

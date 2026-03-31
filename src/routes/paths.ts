@@ -35,6 +35,12 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/train-info`,
       stations: `${ROOTS.DASHBOARD}/train-info/stations`,
       trains: `${ROOTS.DASHBOARD}/train-info/trains`,
+      routes: `${ROOTS.DASHBOARD}/train-info/routes`,
+      lines: `${ROOTS.DASHBOARD}/train-info/lines`,
+      lineStations: `${ROOTS.DASHBOARD}/train-info/line-stations`,
+    },
+    trainSchedule: {
+      root: `${ROOTS.DASHBOARD}/train-schedule`,
     },
   },
 };
