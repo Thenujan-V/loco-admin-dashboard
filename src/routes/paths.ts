@@ -55,5 +55,14 @@ export const paths = {
       list: `${ROOTS.DASHBOARD}/pickup-person/list`,
       details: (id: string) => `${ROOTS.DASHBOARD}/pickup-person/${id}`,
     },
+    deliveryPerson: {
+      root: `${ROOTS.DASHBOARD}/delivery-person`,
+      list: `${ROOTS.DASHBOARD}/delivery-person/list`,
+      details: (id: string) => `${ROOTS.DASHBOARD}/delivery-person/${id}`,
+    },
+    foods: {
+      root: `${ROOTS.DASHBOARD}/foods`,
+      categories: `${ROOTS.DASHBOARD}/foods/categories`,
+    },
   },
 };

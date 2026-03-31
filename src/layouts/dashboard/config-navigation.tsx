@@ -98,6 +98,22 @@ export function useNavData() {
               { title: 'List', path: paths.dashboard.pickupPerson.list },
             ],
           },
+          {
+            title: 'Delivery Person',
+            path: paths.dashboard.deliveryPerson.root,
+            icon: ICONS.tour,
+            children: [
+              { title: 'List', path: paths.dashboard.deliveryPerson.list },
+            ],
+          },
+          {
+            title: 'Foods',
+            path: paths.dashboard.foods.root,
+            icon: ICONS.ecommerce,
+            children: [
+              { title: 'Categories', path: paths.dashboard.foods.categories },
+            ],
+          },
         ],
       },
 

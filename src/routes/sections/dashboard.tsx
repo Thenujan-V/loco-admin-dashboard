@@ -29,6 +29,11 @@ const RestaurantDetailsPage = lazy(() => import('src/pages/dashboard/restaurants
 const PickupPersonListPage = lazy(() => import('src/pages/dashboard/pickup-person/list'));
 const PickupPersonDetailsPage = lazy(() => import('src/pages/dashboard/pickup-person/details'));
 
+const DeliveryPersonListPage = lazy(() => import('src/pages/dashboard/delivery-person/list'));
+const DeliveryPersonDetailsPage = lazy(() => import('src/pages/dashboard/delivery-person/details'));
+
+const FoodCategoriesPage = lazy(() => import('src/pages/dashboard/foods/categories/categories'));
+
 export const dashboardRoutes = [
   {
     path: 'dashboard',
@@ -95,6 +100,21 @@ export const dashboardRoutes = [
           { element: <PickupPersonListPage />, index: true },
           { path: 'list', element: <PickupPersonListPage /> },
           { path: ':id', element: <PickupPersonDetailsPage /> },
+        ],
+      },
+      {
+        path: 'delivery-person',
+        children: [
+          { element: <DeliveryPersonListPage />, index: true },
+          { path: 'list', element: <DeliveryPersonListPage /> },
+          { path: ':id', element: <DeliveryPersonDetailsPage /> },
+        ],
+      },
+      {
+        path: 'foods',
+        children: [
+          { element: <FoodCategoriesPage />, index: true },
+          { path: 'categories', element: <FoodCategoriesPage /> },
         ],
       },
     ],
