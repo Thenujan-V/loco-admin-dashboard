@@ -22,9 +22,13 @@ export const paths = {
     root: ROOTS.DASHBOARD,
     users: {
       root: `${ROOTS.DASHBOARD}/users`,
+      list: `${ROOTS.DASHBOARD}/users`,
+      details: (id: string) => `${ROOTS.DASHBOARD}/users/${id}`,
     },
     orders: {
       root: `${ROOTS.DASHBOARD}/orders`,
+      list: `${ROOTS.DASHBOARD}/orders`,
+      details: (id: string) => `${ROOTS.DASHBOARD}/orders/${id}`,
     },
     menu: {
       root: `${ROOTS.DASHBOARD}/menu`,

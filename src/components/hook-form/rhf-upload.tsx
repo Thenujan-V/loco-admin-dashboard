@@ -6,8 +6,13 @@ import { UploadAvatar, Upload, UploadBox } from '../upload';
 
 export interface RHFUploadAvatarProps {
   name: string;
-  helperText?: any;
-  other?: any;
+  helperText?: React.ReactNode;
+  maxSize?: number;
+  onDrop?: (acceptedFiles: File[]) => void;
+  accept?: Record<string, string[]>;
+  disabled?: boolean;
+  sx?: object;
+  [key: string]: any;
 }
 
 export function RHFUploadAvatar({ name, helperText, ...other }: RHFUploadAvatarProps) {

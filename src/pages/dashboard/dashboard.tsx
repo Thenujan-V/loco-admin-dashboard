@@ -9,7 +9,7 @@ export default function Page() {
   return (
     <>
       <Helmet>
-        <title> Ceylon Reload - Dashboard</title>
+        <title> Loco Munch - Dashboard</title>
       </Helmet>
 
       <DashboardView />

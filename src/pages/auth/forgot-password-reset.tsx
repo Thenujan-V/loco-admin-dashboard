@@ -8,7 +8,7 @@ export default function ForgotPasswordResetPage() {
   return (
     <>
       <Helmet>
-        <title> Ceylon Reload - Reset Password</title>
+        <title> Loco Munch - Reset Password</title>
       </Helmet>
 
       <NewPasswordView/>

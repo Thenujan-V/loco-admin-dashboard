@@ -8,7 +8,7 @@ export default function OtpPage() {
   return (
     <>
       <Helmet>
-        <title> Ceylon Reload - OTP</title>
+        <title> Loco Munch - OTP</title>
       </Helmet>
 
       <OtpView />

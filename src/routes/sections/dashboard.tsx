@@ -12,6 +12,8 @@ const IndexPage = lazy(() => import('src/pages/dashboard/dashboard'));
 
 const UsersPage = lazy(() => import('src/pages/dashboard/users/users'));
 const OrdersPage = lazy(() => import('src/pages/dashboard/orders/orders'));
+const UserDetailsPage = lazy(() => import('src/pages/dashboard/users/details'));
+const OrderDetailsPage = lazy(() => import('src/pages/dashboard/orders/details'));
 const CategoriesPage = lazy(() => import('src/pages/dashboard/menu/categories/categories'));
 const ItemsPage = lazy(() => import('src/pages/dashboard/menu/items/items'));
 const StationsPage = lazy(() => import('src/pages/dashboard/train-info/stations/stations'));
@@ -53,12 +55,14 @@ export const dashboardRoutes = [
         path: 'users',
         children: [
           { element: <UsersPage />, index: true },
+          { path: ':id', element: <UserDetailsPage /> },
         ],
       },
       {
         path: 'orders',
         children: [
           { element: <OrdersPage />, index: true },
+          { path: ':id', element: <OrderDetailsPage /> },
         ],
       },
       {

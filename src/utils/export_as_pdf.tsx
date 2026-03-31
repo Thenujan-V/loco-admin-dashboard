@@ -104,7 +104,7 @@ export default function ExportAsPdf({
           </View> */}
 
           <View style={{ alignItems: 'center' }}>
-            <Text style={styles.h3}>Ceylon Reload</Text>
+            <Text style={styles.h3}>Loco Munch</Text>
           </View>
 
           <View style={{ alignItems: 'flex-end' }}>
