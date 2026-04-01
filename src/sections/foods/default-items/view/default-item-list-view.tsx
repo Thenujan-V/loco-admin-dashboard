@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
@@ -18,44 +18,64 @@ import Avatar from '@mui/material/Avatar';
 import Switch from '@mui/material/Switch';
 import Label from 'src/components/label';
 
+import { useSnackbar } from 'notistack';
+
 import Iconify from 'src/components/iconify';
+import {
+  normalizeCategoryItemsResponse,
+  useGetCategoryItemsQuery,
+} from 'src/store/category-items/category-item-api';
+import {
+  normalizeDefaultItemsResponse,
+  useCreateDefaultItemsBulkMutation,
+  useGetDefaultItemsQuery,
+  useToggleDefaultItemMutation,
+  useUpdateDefaultItemMutation,
+} from 'src/store/default-items/default-item-api';
 
 import DefaultItemAddEditDialog, { FoodDefaultItem } from '../default-item-add-edit-dialog';
 
-const MOCK_CATEGORIES = [
-  { id: '1', name: 'Breakfast Combo' },
-  { id: '2', name: 'Dinner Standard' },
-  { id: '3', name: 'Beverages' },
-];
-
-const MOCK_ITEMS: FoodDefaultItem[] = [
-  {
-    id: '1',
-    name: 'Pancakes',
-    description: 'Fluffy buttermilk pancakes with syrup',
-    categoryId: '1',
-    image: 'https://placehold.co/100x100/png?text=Pancakes',
-    availability: true,
-  },
-  {
-    id: '2',
-    name: 'Steak & Fries',
-    description: 'Grilled steak served with crispy french fries',
-    categoryId: '2',
-    image: 'https://placehold.co/100x100/png?text=Steak',
-    availability: false,
-  },
-];
-
 export default function FoodDefaultItemListView() {
-  const [tableData, setTableData] = useState<FoodDefaultItem[]>(MOCK_ITEMS);
+  const { enqueueSnackbar } = useSnackbar();
+  const { data, isLoading, isError } = useGetDefaultItemsQuery();
+  const { data: categoriesData } = useGetCategoryItemsQuery();
+  const [createDefaultItemsBulk] = useCreateDefaultItemsBulkMutation();
+  const [updateDefaultItem] = useUpdateDefaultItemMutation();
+  const [toggleDefaultItem] = useToggleDefaultItemMutation();
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [currentItem, setCurrentItem] = useState<FoodDefaultItem | null>(null);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const tableData = useMemo(
+    () =>
+      normalizeDefaultItemsResponse(data).map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        description: item.description,
+        categoryId: String(item.categoryId ?? ''),
+        image: item.image,
+        availability: item.availability,
+      })),
+    [data]
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      normalizeCategoryItemsResponse(categoriesData).map((item) => ({
+        id: String(item.id),
+        name: item.name,
+      })),
+    [categoriesData]
+  );
+
+  const categoryMap = useMemo(
+    () => new Map(categoryOptions.map((item) => [item.id, item.name])),
+    [categoryOptions]
+  );
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -69,22 +89,64 @@ export default function FoodDefaultItemListView() {
     setOpenAddDialog(true);
   }, []);
 
-  const handleAvailabilityToggle = useCallback((id: string, newAvailability: boolean) => {
-    setTableData((prevData) =>
-      prevData.map((row) => (row.id === id ? { ...row, availability: newAvailability } : row))
-    );
-  }, []);
-
-  const handleSaveItems = useCallback((newItems: FoodDefaultItem[]) => {
-    setTableData((prevData) => {
-      if (currentItem) {
-        const updatedItem = newItems[0];
-        return prevData.map((row) => (row.id === currentItem.id ? { ...updatedItem, id: row.id } : row));
+  const handleAvailabilityToggle = useCallback(
+    async (id: string) => {
+      try {
+        await toggleDefaultItem(id).unwrap();
+        enqueueSnackbar('Item availability updated successfully.', { variant: 'success' });
+      } catch (error: any) {
+        enqueueSnackbar(error?.data?.message || error?.message || 'Failed to toggle item availability.', {
+          variant: 'error',
+        });
       }
-      const mappedNewItems = newItems.map((item) => ({ ...item, id: new Date().getTime().toString() + Math.random().toString() }));
-      return [...prevData, ...mappedNewItems];
-    });
-  }, [currentItem]);
+    },
+    [enqueueSnackbar, toggleDefaultItem]
+  );
+
+  const handleSaveItems = useCallback(
+    async (newItems: FoodDefaultItem[]) => {
+      try {
+        if (currentItem?.id) {
+          const updatedItem = newItems[0];
+
+          await updateDefaultItem({
+            id: currentItem.id,
+            body: {
+              name: updatedItem.name,
+              description: updatedItem.description,
+              categoryId: updatedItem.categoryId,
+              image: updatedItem.image,
+              availability: updatedItem.availability,
+            },
+          }).unwrap();
+
+          enqueueSnackbar('Default item updated successfully.', { variant: 'success' });
+          return;
+        }
+
+        await createDefaultItemsBulk(
+          newItems.map((item) => ({
+            name: item.name,
+            description: item.description,
+            categoryId: item.categoryId,
+            image: item.image,
+            availability: item.availability ?? true,
+          }))
+        ).unwrap();
+
+        enqueueSnackbar(
+          `${newItems.length} default item${newItems.length > 1 ? 's' : ''} created successfully.`,
+          { variant: 'success' }
+        );
+      } catch (error: any) {
+        enqueueSnackbar(error?.data?.message || error?.message || 'Failed to save default items.', {
+          variant: 'error',
+        });
+        throw error;
+      }
+    },
+    [createDefaultItemsBulk, currentItem?.id, enqueueSnackbar, updateDefaultItem]
+  );
 
   const handleNewConfig = () => {
     setCurrentItem(null);
@@ -93,25 +155,42 @@ export default function FoodDefaultItemListView() {
 
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const getCategoryName = (id: string) => {
-    return MOCK_CATEGORIES.find((cat) => cat.id === id)?.name || 'Unknown Category';
-  };
+  const getCategoryName = (id: string) => categoryMap.get(id) || 'Unknown Category';
 
   return (
     <>
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-          <Typography variant="h4">Default Items</Typography>
-          
+          <Box>
+            <Typography variant="h4">Default Items</Typography>
+            {isLoading && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                Loading default items...
+              </Typography>
+            )}
+            {isError && (
+              <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
+                Failed to load default items from API.
+              </Typography>
+            )}
+          </Box>
+
           <Button
             variant="contained"
             color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
             onClick={handleNewConfig}
+            disabled={!categoryOptions.length}
           >
             Add New Item
           </Button>
         </Box>
+
+        {!categoryOptions.length && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+            Create at least one food category before adding default items.
+          </Typography>
+        )}
 
         <Card>
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
@@ -131,7 +210,7 @@ export default function FoodDefaultItemListView() {
                   <TableRow key={row.id} hover>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar alt={row.name} src={row.image as string} variant="rounded" sx={{ width: 48, height: 48, mr: 2 }} />
+                        <Avatar alt={row.name} src={typeof row.image === 'string' ? row.image : ''} variant="rounded" sx={{ width: 48, height: 48, mr: 2 }} />
                         <Typography variant="subtitle2" noWrap>
                           {row.name}
                         </Typography>
@@ -145,15 +224,15 @@ export default function FoodDefaultItemListView() {
                     </TableCell>
 
                     <TableCell>
-                       <Label color="info" variant="soft">
-                         {getCategoryName(row.categoryId)}
-                       </Label>
+                      <Label color="info" variant="soft">
+                        {getCategoryName(row.categoryId)}
+                      </Label>
                     </TableCell>
 
                     <TableCell>
                       <Switch
                         checked={row.availability}
-                        onChange={(e) => handleAvailabilityToggle(row.id as string, e.target.checked)}
+                        onChange={() => handleAvailabilityToggle(row.id as string)}
                       />
                     </TableCell>
 
@@ -167,7 +246,7 @@ export default function FoodDefaultItemListView() {
                   </TableRow>
                 ))}
 
-                {tableData.length === 0 && (
+                {tableData.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
                       <Typography variant="subtitle1">No default items found</Typography>
@@ -196,7 +275,7 @@ export default function FoodDefaultItemListView() {
           currentItem={currentItem}
           onClose={() => setOpenAddDialog(false)}
           onSave={handleSaveItems}
-          options={MOCK_CATEGORIES}
+          options={categoryOptions}
         />
       )}
     </>

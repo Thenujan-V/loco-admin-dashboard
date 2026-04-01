@@ -5,7 +5,7 @@ export default function SchedulingPage() {
   return (
     <>
       <Helmet>
-        <title> Dashboard: Scheduling</title>
+        <title> Dashboard: Train Schedule</title>
       </Helmet>
       <SchedulingListView />
     </>

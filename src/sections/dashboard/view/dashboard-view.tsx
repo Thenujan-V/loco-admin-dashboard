@@ -176,7 +176,7 @@ export default function DashboardView() {
     { title: 'Users', caption: 'Manage users and their orders', path: paths.dashboard.users.list, icon: 'solar:users-group-rounded-bold' },
     { title: 'Orders', caption: 'Open full order timelines', path: paths.dashboard.orders.list, icon: 'solar:bag-smile-bold' },
     { title: 'Restaurants', caption: 'Review vendors and documents', path: paths.dashboard.restaurants.list, icon: 'solar:shop-bold' },
-    { title: 'Train Scheduling', caption: 'Control trains, routes, and stops', path: paths.dashboard.trainSchedule.scheduling, icon: 'solar:tram-bold' },
+    { title: 'Train Schedule', caption: 'Control trains, routes, and stops', path: paths.dashboard.trainSchedule.root, icon: 'solar:tram-bold' },
   ];
 
   return (
