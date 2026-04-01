@@ -18,12 +18,14 @@ import Label from 'src/components/label';
 
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
+import { normalizeSchedulesResponse, useGetSchedulesQuery } from 'src/store/schedules/schedule-api';
 
 import Iconify from 'src/components/iconify';
-import StationStopAddEditDialog, { StationStopPayload, MOCK_SCHEDULES } from '../station-stop-add-edit-dialog';
+import StationStopAddEditDialog, { StationStopPayload } from '../station-stop-add-edit-dialog';
 
 export default function StationStopListView() {
   const router = useRouter();
+  const { data: schedulesData } = useGetSchedulesQuery();
 
   const [tableData, setTableData] = useState<StationStopPayload[]>([
     { 
@@ -69,7 +71,7 @@ export default function StationStopListView() {
     }
   }, [page, rowsPerPage, tableData]);
 
-  const handleSaveStops = useCallback((newPayload: StationStopPayload) => {
+  const handleSaveStops = useCallback(async (newPayload: StationStopPayload) => {
     setTableData((prevData) => {
       // If editing existing
       if (currentConfig) {
@@ -81,6 +83,7 @@ export default function StationStopListView() {
       // Creating new
       return [...prevData, { ...newPayload, id: new Date().getTime().toString() }];
     });
+    return Promise.resolve();
   }, [currentConfig]);
 
   const handleNewConfig = () => {
@@ -90,9 +93,13 @@ export default function StationStopListView() {
 
   // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const scheduleOptions = normalizeSchedulesResponse(schedulesData).map((schedule) => ({
+    label: `Schedule #${schedule.id}`,
+    value: Number(schedule.id),
+  }));
 
   const getScheduleName = (id: number | null) => {
-    return MOCK_SCHEDULES.find((s) => s.value === id)?.label || 'Unknown Schedule';
+    return scheduleOptions.find((s) => s.value === id)?.label || 'Unknown Schedule';
   };
 
   return (

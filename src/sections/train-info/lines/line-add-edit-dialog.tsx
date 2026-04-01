@@ -11,9 +11,11 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField, RHFAutocomplete } from 'src/components/hook-form';
+import { normalizeStationsResponse, useGetStationsQuery } from 'src/store/stations/station-api';
 
 export type LineItem = {
   id?: string;
@@ -26,22 +28,29 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentLine?: LineItem | null;
-  onSave: (lines: LineItem[]) => void;
+  onSave: (lines: LineItem[]) => Promise<void>;
 };
 
 type FormValuesProps = {
   lines: LineItem[];
 };
 
-export const MOCK_STATIONS = [
-  { label: 'Central Station', value: 101 },
-  { label: 'Northgate Station', value: 102 },
-  { label: 'South Station', value: 103 },
-  { label: 'West End Terminal', value: 104 },
-  { label: 'East Side Station', value: 105 },
-];
+export type StationOption = {
+  label: string;
+  value: number;
+};
 
-function LineRow({ index, remove, isEdit }: { index: number; remove: any; isEdit: boolean }) {
+function LineRow({
+  index,
+  remove,
+  isEdit,
+  stationOptions,
+}: {
+  index: number;
+  remove: any;
+  isEdit: boolean;
+  stationOptions: StationOption[];
+}) {
   useFormContext();
 
   return (
@@ -51,12 +60,12 @@ function LineRow({ index, remove, isEdit }: { index: number; remove: any; isEdit
         <RHFAutocomplete
           name={`lines.${index}.startStationId`}
           label="Start Station"
-          options={MOCK_STATIONS}
+          options={stationOptions}
         />
         <RHFAutocomplete
           name={`lines.${index}.endStationId`}
           label="End Station"
-          options={MOCK_STATIONS}
+          options={stationOptions}
         />
       </Box>
       {!isEdit && (
@@ -70,6 +79,11 @@ function LineRow({ index, remove, isEdit }: { index: number; remove: any; isEdit
 
 export default function LineAddEditDialog({ open, onClose, currentLine, onSave }: Props) {
   const isEdit = !!currentLine;
+  const { data, isLoading } = useGetStationsQuery();
+  const stationOptions = normalizeStationsResponse(data).map((station) => ({
+    label: station.name,
+    value: Number(station.id),
+  }));
 
   const LineSchema = Yup.object().shape({
     lines: Yup.array().of(
@@ -106,7 +120,7 @@ export default function LineAddEditDialog({ open, onClose, currentLine, onSave }
   }, [open, currentLine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.lines);
+    await onSave(data.lines);
     onClose();
   });
 
@@ -117,8 +131,19 @@ export default function LineAddEditDialog({ open, onClose, currentLine, onSave }
 
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
+            {!stationOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isLoading ? 'Loading stations...' : 'No stations available. Please create stations first.'}
+              </Typography>
+            )}
             {fields.map((item, index) => (
-              <LineRow key={item.id} index={index} remove={remove} isEdit={isEdit} />
+              <LineRow
+                key={item.id}
+                index={index}
+                remove={remove}
+                isEdit={isEdit}
+                stationOptions={stationOptions}
+              />
             ))}
 
             {!isEdit && (

@@ -13,9 +13,13 @@ import IconButton from '@mui/material/IconButton';
 import Checkbox from '@mui/material/Checkbox';
 import Box from '@mui/material/Box';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Typography from '@mui/material/Typography';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField, RHFAutocomplete } from 'src/components/hook-form';
+import { normalizeLinesResponse, useGetLinesQuery } from 'src/store/lines/line-api';
+import { normalizeStationsResponse, useGetStationsQuery } from 'src/store/stations/station-api';
+import { normalizeLineStationsResponse, useGetLineStationsQuery } from 'src/store/line-stations/line-station-api';
 
 export type RouteItem = {
   id?: string;
@@ -30,33 +34,41 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentRoute?: RouteItem | null;
-  onSave: (routes: RouteItem[]) => void;
+  onSave: (routes: RouteItem[]) => Promise<void>;
 };
 
 type FormValuesProps = {
   routes: RouteItem[];
 };
 
-export const MOCK_LINES = [
-  { label: 'Red Line', value: 1 },
-  { label: 'Blue Line', value: 2 },
-  { label: 'Green Line', value: 3 },
-];
-
-export const MOCK_STATIONS = [
-  { label: 'Central Station', value: 101, lineId: 1 },
-  { label: 'Northgate Station', value: 102, lineId: 1 },
-  { label: 'South Station', value: 103, lineId: 2 },
-  { label: 'West End Terminal', value: 104, lineId: 2 },
-  { label: 'East Side Station', value: 105, lineId: 3 },
-];
-
-function RouteRow({ index, remove, isEdit }: { index: number; remove: any; isEdit: boolean }) {
+function RouteRow({
+  index,
+  remove,
+  isEdit,
+  lineOptions,
+  stationMap,
+}: {
+  index: number;
+  remove: any;
+  isEdit: boolean;
+  lineOptions: Array<{ label: string; value: number }>;
+  stationMap: Map<number, string>;
+}) {
   const { control } = useFormContext();
   const lineId = useWatch({
     control,
     name: `routes.${index}.lineId`,
   });
+  const { data: lineStationsData, isLoading: isLineStationsLoading } = useGetLineStationsQuery(lineId as number, {
+    skip: !lineId,
+  });
+
+  const stationOptions = normalizeLineStationsResponse(lineStationsData)
+    .sort((a, b) => (a.lineOrder ?? 0) - (b.lineOrder ?? 0))
+    .map((station) => ({
+      label: stationMap.get(Number(station.stationId)) || `Station #${station.stationId}`,
+      value: Number(station.stationId),
+    }));
 
   return (
     <Stack spacing={2} direction="row" alignItems="center">
@@ -65,19 +77,19 @@ function RouteRow({ index, remove, isEdit }: { index: number; remove: any; isEdi
         <RHFAutocomplete
           name={`routes.${index}.lineId`}
           label="Line"
-          options={MOCK_LINES}
+          options={lineOptions}
         />
         <RHFAutocomplete
           name={`routes.${index}.startStationId`}
           label="Start Station"
-          options={lineId ? MOCK_STATIONS.filter((s) => s.lineId === lineId) : []}
-          disabled={!lineId}
+          options={lineId ? stationOptions : []}
+          disabled={!lineId || isLineStationsLoading}
         />
         <RHFAutocomplete
           name={`routes.${index}.endStationId`}
           label="End Station"
-          options={lineId ? MOCK_STATIONS.filter((s) => s.lineId === lineId) : []}
-          disabled={!lineId}
+          options={lineId ? stationOptions : []}
+          disabled={!lineId || isLineStationsLoading}
         />
       </Box>
       <Controller
@@ -102,6 +114,17 @@ function RouteRow({ index, remove, isEdit }: { index: number; remove: any; isEdi
 
 export default function RouteAddEditDialog({ open, onClose, currentRoute, onSave }: Props) {
   const isEdit = !!currentRoute;
+  const { data: linesData, isLoading: isLinesLoading } = useGetLinesQuery();
+  const { data: stationsData, isLoading: isStationsLoading } = useGetStationsQuery();
+  const lineOptions = normalizeLinesResponse(linesData).map((line) => ({
+    label: line.name,
+    value: Number(line.id),
+  }));
+  const stationOptions = normalizeStationsResponse(stationsData).map((station) => ({
+    label: station.name,
+    value: Number(station.id),
+  }));
+  const stationMap = new Map(stationOptions.map((station) => [station.value, station.label]));
 
   const RouteSchema = Yup.object().shape({
     routes: Yup.array().of(
@@ -141,7 +164,7 @@ export default function RouteAddEditDialog({ open, onClose, currentRoute, onSave
   }, [open, currentRoute]);
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.routes);
+    await onSave(data.routes);
     onClose();
   });
 
@@ -152,8 +175,27 @@ export default function RouteAddEditDialog({ open, onClose, currentRoute, onSave
 
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
+            {!lineOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isLinesLoading ? 'Loading lines...' : 'No lines available. Please create a line first.'}
+              </Typography>
+            )}
+
+            {!stationOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isStationsLoading ? 'Loading stations...' : 'No stations available. Please create stations first.'}
+              </Typography>
+            )}
+
             {fields.map((item, index) => (
-              <RouteRow key={item.id} index={index} remove={remove} isEdit={isEdit} />
+              <RouteRow
+                key={item.id}
+                index={index}
+                remove={remove}
+                isEdit={isEdit}
+                lineOptions={lineOptions}
+                stationMap={stationMap}
+              />
             ))}
 
             {!isEdit && (

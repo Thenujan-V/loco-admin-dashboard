@@ -11,9 +11,12 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField, RHFAutocomplete } from 'src/components/hook-form';
+import { normalizeLinesResponse, useGetLinesQuery } from 'src/store/lines/line-api';
+import { normalizeStationsResponse, useGetStationsQuery } from 'src/store/stations/station-api';
 
 export type LineStationRow = {
   stationId: number | null;
@@ -30,26 +33,23 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentLineStation?: LineStationPayload | null;
-  onSave: (payload: LineStationPayload) => void;
+  onSave: (payload: LineStationPayload) => Promise<void>;
+  fixedLineId?: number | null;
 };
 
 type FormValuesProps = LineStationPayload;
 
-export const MOCK_LINES = [
-  { label: 'Red Line', value: 1 },
-  { label: 'Blue Line', value: 2 },
-  { label: 'Green Line', value: 3 },
-];
-
-export const MOCK_STATIONS = [
-  { label: 'Central Station', value: 101 },
-  { label: 'Northgate Station', value: 102 },
-  { label: 'South Station', value: 103 },
-  { label: 'West End Terminal', value: 104 },
-  { label: 'East Side Station', value: 105 },
-];
-
-function StationRow({ index, remove, lineId }: { index: number; remove: any; lineId: any }) {
+function StationRow({
+  index,
+  remove,
+  lineId,
+  stationOptions,
+}: {
+  index: number;
+  remove: any;
+  lineId: any;
+  stationOptions: Array<{ label: string; value: number }>;
+}) {
   const { control } = useFormContext();
 
   return (
@@ -58,7 +58,7 @@ function StationRow({ index, remove, lineId }: { index: number; remove: any; lin
         <RHFAutocomplete
           name={`stations.${index}.stationId`}
           label="Station"
-          options={!lineId ? [] : MOCK_STATIONS}
+          options={!lineId ? [] : stationOptions}
           disabled={!lineId}
         />
         <RHFTextField
@@ -75,8 +75,24 @@ function StationRow({ index, remove, lineId }: { index: number; remove: any; lin
   );
 }
 
-export default function LineStationAddEditDialog({ open, onClose, currentLineStation, onSave }: Props) {
+export default function LineStationAddEditDialog({
+  open,
+  onClose,
+  currentLineStation,
+  onSave,
+  fixedLineId,
+}: Props) {
   const isEdit = !!currentLineStation;
+  const { data: linesData, isLoading: isLinesLoading } = useGetLinesQuery();
+  const { data: stationsData, isLoading: isStationsLoading } = useGetStationsQuery();
+  const lineOptions = normalizeLinesResponse(linesData).map((line) => ({
+    label: line.name,
+    value: Number(line.id),
+  }));
+  const stationOptions = normalizeStationsResponse(stationsData).map((station) => ({
+    label: station.name,
+    value: Number(station.id),
+  }));
 
   const LineStationSchema = Yup.object().shape({
     lineId: Yup.number().typeError('Line is required').required('Line is required').nullable(),
@@ -89,7 +105,7 @@ export default function LineStationAddEditDialog({ open, onClose, currentLineSta
   });
 
   const defaultValues = {
-    lineId: currentLineStation?.lineId || null,
+    lineId: currentLineStation?.lineId || fixedLineId || null,
     stations: currentLineStation?.stations?.length
       ? currentLineStation.stations
       : [{ stationId: null, lineOrder: null }],
@@ -113,10 +129,10 @@ export default function LineStationAddEditDialog({ open, onClose, currentLineSta
     if (open) {
       reset(defaultValues as any);
     }
-  }, [open, currentLineStation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, currentLineStation, fixedLineId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data);
+    await onSave(data);
     onClose();
   });
 
@@ -131,13 +147,32 @@ export default function LineStationAddEditDialog({ open, onClose, currentLineSta
               <RHFAutocomplete
                 name="lineId"
                 label="Select Line"
-                options={MOCK_LINES}
+                options={lineOptions}
+                disabled={!!fixedLineId}
               />
             </Box>
 
+            {!lineOptions.length && !fixedLineId && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isLinesLoading ? 'Loading lines...' : 'No lines available. Please create a line first.'}
+              </Typography>
+            )}
+
+            {!stationOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isStationsLoading ? 'Loading stations...' : 'No stations available. Please create stations first.'}
+              </Typography>
+            )}
+
               <>
                 {fields.map((item, index) => (
-                  <StationRow key={item.id} index={index} remove={remove} lineId={lineId} />
+                  <StationRow
+                    key={item.id}
+                    index={index}
+                    remove={remove}
+                    lineId={lineId}
+                    stationOptions={stationOptions}
+                  />
                 ))}
 
                 <Button

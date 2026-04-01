@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
@@ -17,11 +18,19 @@ import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
 import Switch from '@mui/material/Switch';
 import MenuItem from '@mui/material/MenuItem';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
-import Label from 'src/components/label';
+import { useSnackbar } from 'notistack';
 
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
+import {
+  normalizeRestaurantsResponse,
+  useGetRestaurantsQuery,
+  useToggleRestaurantStatusMutation,
+} from 'src/store/restaurants/restaurant-api';
 
 import Iconify from 'src/components/iconify';
 
@@ -38,7 +47,6 @@ export type RestaurantRow = {
   email: string;
   phoneNumber: string;
   image: string;
-  isVerified: boolean;
   isActive: boolean;
   status: string;
 };
@@ -51,7 +59,6 @@ export const MOCK_RESTAURANTS: RestaurantRow[] = [
     email: 'contact@locokitchen.com',
     phoneNumber: '+1 234 567 8900',
     image: 'https://api.dicebear.com/7.x/identicon/svg?seed=Spicy',
-    isVerified: true,
     isActive: true,
     status: STATUS.APPROVED,
   },
@@ -62,7 +69,6 @@ export const MOCK_RESTAURANTS: RestaurantRow[] = [
     email: 'hello@burgerstation.com',
     phoneNumber: '+1 987 654 3210',
     image: 'https://api.dicebear.com/7.x/identicon/svg?seed=Burger',
-    isVerified: false,
     isActive: false,
     status: STATUS.PENDING,
   },
@@ -70,12 +76,43 @@ export const MOCK_RESTAURANTS: RestaurantRow[] = [
 
 export default function RestaurantListView() {
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
+  const { data, isLoading, isError } = useGetRestaurantsQuery();
+  const [toggleRestaurantStatus] = useToggleRestaurantStatusMutation();
 
   const [tableData, setTableData] = useState<RestaurantRow[]>(MOCK_RESTAURANTS);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    restaurant: RestaurantRow | null;
+    nextValue: boolean;
+  }>({
+    open: false,
+    restaurant: null,
+    nextValue: false,
+  });
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const normalizedRestaurants = useMemo(() => {
+    return normalizeRestaurantsResponse(data).map((restaurant) => ({
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address,
+      email: restaurant.email,
+      phoneNumber: restaurant.phoneNumber,
+      isActive: restaurant.isActive,
+      status: restaurant.status || STATUS.PENDING,
+      image: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(`${restaurant.name || 'Restaurant'}-${restaurant.id}`)}`,
+    })) as RestaurantRow[];
+  }, [data]);
+
+  useEffect(() => {
+    if (normalizedRestaurants.length) {
+      setTableData(normalizedRestaurants);
+    }
+  }, [normalizedRestaurants]);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -90,23 +127,66 @@ export default function RestaurantListView() {
     );
   }, []);
 
-  const handleActiveChange = useCallback((id: number, newActive: boolean) => {
-    setTableData((prevData) =>
-      prevData.map((row) => (row.id === id ? { ...row, isActive: newActive } : row))
-    );
+  const handleActiveToggleRequest = useCallback((restaurant: RestaurantRow, checked: boolean) => {
+    setConfirmState({
+      open: true,
+      restaurant,
+      nextValue: checked,
+    });
   }, []);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmState({
+      open: false,
+      restaurant: null,
+      nextValue: false,
+    });
+  }, []);
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!confirmState.restaurant) return;
+
+    const { restaurant, nextValue } = confirmState;
+
+    try {
+      setTableData((prev) =>
+        prev.map((item) => (item.id === restaurant.id ? { ...item, isActive: nextValue } : item))
+      );
+      await toggleRestaurantStatus({ userId: restaurant.id, isActive: nextValue }).unwrap();
+      enqueueSnackbar(
+        `${restaurant.name} has been ${nextValue ? 'activated' : 'deactivated'} successfully.`,
+        { variant: 'success' }
+      );
+      handleCloseConfirm();
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to update restaurant status.', {
+        variant: 'error',
+      });
+    }
+  }, [confirmState, enqueueSnackbar, handleCloseConfirm, toggleRestaurantStatus]);
 
   const handleViewRow = useCallback((id: number) => {
     router.push(paths.dashboard.restaurants.details(id.toString()));
   }, [router]);
 
-  // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Container maxWidth={false}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-        <Typography variant="h4">Restaurants</Typography>
+        <Box>
+          <Typography variant="h4">Restaurants</Typography>
+          {isLoading && (
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+              Loading restaurants...
+            </Typography>
+          )}
+          {isError && (
+            <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
+              Failed to load restaurants from API. Showing fallback data.
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       <Card>
@@ -117,7 +197,6 @@ export default function RestaurantListView() {
                 <TableCell>Restaurant</TableCell>
                 <TableCell>Contact</TableCell>
                 <TableCell>Address</TableCell>
-                <TableCell>Verified</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -150,15 +229,9 @@ export default function RestaurantListView() {
                   </TableCell>
 
                   <TableCell>
-                    <Label color={row.isVerified ? 'success' : 'warning'}>
-                      {row.isVerified ? 'Yes' : 'No'}
-                    </Label>
-                  </TableCell>
-
-                  <TableCell>
                     <Switch
                       checked={row.isActive}
-                      onChange={(e) => handleActiveChange(row.id, e.target.checked)}
+                      onChange={(event) => handleActiveToggleRequest(row, event.target.checked)}
                     />
                   </TableCell>
 
@@ -166,7 +239,7 @@ export default function RestaurantListView() {
                     <Select
                       size="small"
                       value={row.status}
-                      onChange={(e: SelectChangeEvent) => handleStatusChange(row.id, e.target.value)}
+                      onChange={(event: SelectChangeEvent) => handleStatusChange(row.id, event.target.value)}
                       sx={{ typography: 'body2', minWidth: 120 }}
                     >
                       <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
@@ -206,6 +279,25 @@ export default function RestaurantListView() {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
+
+      <Dialog open={confirmState.open} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Status Change</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {confirmState.restaurant
+              ? `Are you sure you want to ${confirmState.nextValue ? 'activate' : 'deactivate'} ${confirmState.restaurant.name}?`
+              : 'Are you sure you want to update this restaurant status?'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={handleCloseConfirm}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleConfirmToggle}>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

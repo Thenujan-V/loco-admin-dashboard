@@ -41,12 +41,11 @@ export const paths = {
       trains: `${ROOTS.DASHBOARD}/train-info/trains`,
       routes: `${ROOTS.DASHBOARD}/train-info/routes`,
       lines: `${ROOTS.DASHBOARD}/train-info/lines`,
-      lineStations: `${ROOTS.DASHBOARD}/train-info/line-stations`,
+      lineDetails: (id: string) => `${ROOTS.DASHBOARD}/train-info/lines/${id}`,
     },
     trainSchedule: {
       root: `${ROOTS.DASHBOARD}/train-schedule`,
       scheduling: `${ROOTS.DASHBOARD}/train-schedule/scheduling`,
-      stationStops: `${ROOTS.DASHBOARD}/train-schedule/station-stops`,
       schedulingDetails: (id: string) => `${ROOTS.DASHBOARD}/train-schedule/scheduling/${id}`,
     },
     restaurants: {

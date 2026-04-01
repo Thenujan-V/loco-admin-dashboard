@@ -11,6 +11,10 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -25,6 +29,8 @@ import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
+import { normalizeUsersResponse, useGetUsersQuery, useToggleUserStatusMutation } from 'src/store/users/user-api';
+import { useSnackbar } from 'notistack';
 
 import { getOrdersByUserId, getUserById, OrderRow } from '../user-mock-data';
 
@@ -49,8 +55,31 @@ const formatCurrency = (value: number) =>
 
 export default function UserDetailsView({ id }: Props) {
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
+  const { data } = useGetUsersQuery();
+  const [toggleUserStatus] = useToggleUserStatusMutation();
   const [currentTab, setCurrentTab] = useState('overview');
-  const [user, setUser] = useState(() => getUserById(id));
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingActiveValue, setPendingActiveValue] = useState(false);
+  const user = useMemo(() => {
+    const apiUser = normalizeUsersResponse(data).find((item) => String(item.id) === id);
+
+    if (apiUser) {
+      return {
+        id: apiUser.id,
+        firstname: apiUser.firstname,
+        lastname: apiUser.lastname,
+        email: apiUser.email,
+        phoneNumber: apiUser.phoneNumber,
+        isVerified: Boolean(apiUser.isVerified),
+        isActive: apiUser.isActive,
+        createdAt: apiUser.createdAt || new Date().toISOString(),
+        avatar: `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(`${apiUser.firstname || 'User'}-${apiUser.id}`)}`,
+      };
+    }
+
+    return getUserById(id);
+  }, [data, id]);
 
   const orders = useMemo(() => getOrdersByUserId(user.id), [user.id]);
 
@@ -62,9 +91,29 @@ export default function UserDetailsView({ id }: Props) {
     setCurrentTab(value);
   }, []);
 
-  const handleActiveChange = useCallback((checked: boolean) => {
-    setUser((prev) => ({ ...prev, isActive: checked }));
+  const handleActiveToggleRequest = useCallback((checked: boolean) => {
+    setPendingActiveValue(checked);
+    setConfirmOpen(true);
   }, []);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmOpen(false);
+  }, []);
+
+  const handleConfirmToggle = useCallback(async () => {
+    try {
+      await toggleUserStatus({ userId: user.id, isActive: pendingActiveValue }).unwrap();
+      enqueueSnackbar(
+        `${user.firstname} ${user.lastname} has been ${pendingActiveValue ? 'activated' : 'deactivated'} successfully.`,
+        { variant: 'success' }
+      );
+      setConfirmOpen(false);
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to update user status.', {
+        variant: 'error',
+      });
+    }
+  }, [enqueueSnackbar, pendingActiveValue, toggleUserStatus, user.firstname, user.id, user.lastname]);
 
   const renderOverview = (
     <Grid container spacing={3}>
@@ -143,7 +192,7 @@ export default function UserDetailsView({ id }: Props) {
             control={
               <Switch
                 checked={user.isActive}
-                onChange={(event) => handleActiveChange(event.target.checked)}
+                onChange={(event) => handleActiveToggleRequest(event.target.checked)}
               />
             }
             label={
@@ -240,6 +289,23 @@ export default function UserDetailsView({ id }: Props) {
 
       {currentTab === 'overview' && renderOverview}
       {currentTab === 'orders' && renderOrders}
+
+      <Dialog open={confirmOpen} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Status Change</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {`Are you sure you want to ${pendingActiveValue ? 'activate' : 'deactivate'} ${user.firstname} ${user.lastname}?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={handleCloseConfirm}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleConfirmToggle}>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

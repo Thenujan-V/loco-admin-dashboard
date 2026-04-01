@@ -11,11 +11,15 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField, RHFAutocomplete } from 'src/components/hook-form';
+import { normalizeSchedulesResponse, useGetSchedulesQuery } from 'src/store/schedules/schedule-api';
+import { normalizeStationsResponse, useGetStationsQuery } from 'src/store/stations/station-api';
 
 export type StationStopRow = {
+  id?: number | string;
   stationId: number | null;
   stopOrder: number | null;
   arrivalTime: string;
@@ -34,27 +38,23 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentStopConfig?: StationStopPayload | null;
-  onSave: (payload: StationStopPayload) => void;
+  onSave: (payload: StationStopPayload) => Promise<void>;
   fixedScheduleId?: number | null;
 };
 
 type FormValuesProps = StationStopPayload;
 
-export const MOCK_SCHEDULES = [
-  { label: 'Schedule #1 (Express Alpha)', value: 1 },
-  { label: 'Schedule #2 (Loco Commuter)', value: 2 },
-];
-
-// For simplicity, we just use a universal mock list. In reality this filters by the Schedule's valid path points
-export const MOCK_STATIONS = [
-  { label: 'Central Station', value: 101 },
-  { label: 'Northgate Station', value: 102 },
-  { label: 'South Station', value: 103 },
-  { label: 'West End Terminal', value: 104 },
-  { label: 'East Side Station', value: 105 },
-];
-
-function StopRow({ index, remove, scheduleId }: { index: number; remove: any; scheduleId: any }) {
+function StopRow({
+  index,
+  remove,
+  scheduleId,
+  stationOptions,
+}: {
+  index: number;
+  remove: any;
+  scheduleId: any;
+  stationOptions: Array<{ label: string; value: number }>;
+}) {
   const { control } = useFormContext();
 
   return (
@@ -63,7 +63,7 @@ function StopRow({ index, remove, scheduleId }: { index: number; remove: any; sc
         <RHFAutocomplete
           name={`stops.${index}.stationId`}
           label="Station"
-          options={!scheduleId ? [] : MOCK_STATIONS}
+          options={!scheduleId ? [] : stationOptions}
           disabled={!scheduleId}
         />
         <RHFTextField
@@ -114,6 +114,16 @@ function StopRow({ index, remove, scheduleId }: { index: number; remove: any; sc
 
 export default function StationStopAddEditDialog({ open, onClose, currentStopConfig, onSave, fixedScheduleId }: Props) {
   const isEdit = !!currentStopConfig;
+  const { data: schedulesData, isLoading: isSchedulesLoading } = useGetSchedulesQuery();
+  const { data: stationsData, isLoading: isStationsLoading } = useGetStationsQuery();
+  const scheduleOptions = normalizeSchedulesResponse(schedulesData).map((schedule) => ({
+    label: `Schedule #${schedule.id}`,
+    value: Number(schedule.id),
+  }));
+  const stationOptions = normalizeStationsResponse(stationsData).map((station) => ({
+    label: station.name,
+    value: Number(station.id),
+  }));
 
   const StopSchema = Yup.object().shape({
     scheduleId: Yup.number().typeError('Schedule is required').required('Schedule is required').nullable(),
@@ -166,7 +176,7 @@ export default function StationStopAddEditDialog({ open, onClose, currentStopCon
   }, [open, currentStopConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data);
+    await onSave(data);
     onClose();
   });
 
@@ -181,14 +191,32 @@ export default function StationStopAddEditDialog({ open, onClose, currentStopCon
               <RHFAutocomplete
                 name="scheduleId"
                 label="Select Schedule"
-                options={MOCK_SCHEDULES}
+                options={scheduleOptions}
                 disabled={!!fixedScheduleId} // If opened from Overview Page, lock this
               />
             </Box>
 
+            {!scheduleOptions.length && !fixedScheduleId && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isSchedulesLoading ? 'Loading schedules...' : 'No schedules available. Please create a schedule first.'}
+              </Typography>
+            )}
+
+            {!stationOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isStationsLoading ? 'Loading stations...' : 'No stations available. Please create stations first.'}
+              </Typography>
+            )}
+
             <>
               {fields.map((item, index) => (
-                <StopRow key={item.id} index={index} remove={remove} scheduleId={scheduleId} />
+                <StopRow
+                  key={item.id}
+                  index={index}
+                  remove={remove}
+                  scheduleId={scheduleId}
+                  stationOptions={stationOptions}
+                />
               ))}
 
               <Button

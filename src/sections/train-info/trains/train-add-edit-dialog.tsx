@@ -24,7 +24,7 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentTrain?: TrainItem | null;
-  onSave: (trains: TrainItem[]) => void;
+  onSave: (trains: TrainItem[]) => Promise<void>;
 };
 
 type FormValuesProps = {
@@ -67,7 +67,7 @@ export default function TrainAddEditDialog({ open, onClose, currentTrain, onSave
   }, [open, currentTrain]);
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.trains);
+    await onSave(data.trains);
     onClose();
   });
 

@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
@@ -17,11 +18,19 @@ import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
 import Switch from '@mui/material/Switch';
 import MenuItem from '@mui/material/MenuItem';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
-import Label from 'src/components/label';
+import { useSnackbar } from 'notistack';
 
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
+import {
+  normalizeDeliveryPersonsResponse,
+  useGetDeliveryPersonsQuery,
+  useToggleDeliveryPersonStatusMutation,
+} from 'src/store/delivery-person/delivery-person-api';
 
 import Iconify from 'src/components/iconify';
 
@@ -37,10 +46,9 @@ export type DeliveryPersonRow = {
   lastname: string;
   email: string;
   phoneNumber: string;
-  isVerified: boolean;
   isActive: boolean;
   status: string;
-  image?: string; 
+  image?: string;
 };
 
 export const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
@@ -51,7 +59,6 @@ export const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
     email: 'alex.delivery@example.com',
     phoneNumber: '+1 202 555 0102',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=Alex',
-    isVerified: true,
     isActive: true,
     status: STATUS.APPROVED,
   },
@@ -62,7 +69,6 @@ export const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
     email: 'sam.delivery@example.com',
     phoneNumber: '+1 202 555 0104',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=Sam',
-    isVerified: false,
     isActive: false,
     status: STATUS.PENDING,
   },
@@ -70,12 +76,43 @@ export const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
 
 export default function DeliveryPersonListView() {
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
+  const { data, isLoading, isError } = useGetDeliveryPersonsQuery();
+  const [toggleDeliveryPersonStatus] = useToggleDeliveryPersonStatusMutation();
 
   const [tableData, setTableData] = useState<DeliveryPersonRow[]>(MOCK_DELIVERY_PERSONS);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    person: DeliveryPersonRow | null;
+    nextValue: boolean;
+  }>({
+    open: false,
+    person: null,
+    nextValue: false,
+  });
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const normalizedDeliveryPersons = useMemo(() => {
+    return normalizeDeliveryPersonsResponse(data).map((person) => ({
+      id: person.id,
+      firstname: person.firstname,
+      lastname: person.lastname,
+      email: person.email,
+      phoneNumber: person.phoneNumber,
+      isActive: person.isActive,
+      status: person.status || STATUS.PENDING,
+      image: `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(`${person.firstname || 'Delivery'}-${person.id}`)}`,
+    })) as DeliveryPersonRow[];
+  }, [data]);
+
+  useEffect(() => {
+    if (normalizedDeliveryPersons.length) {
+      setTableData(normalizedDeliveryPersons);
+    }
+  }, [normalizedDeliveryPersons]);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -90,23 +127,64 @@ export default function DeliveryPersonListView() {
     );
   }, []);
 
-  const handleActiveChange = useCallback((id: number, newActive: boolean) => {
-    setTableData((prevData) =>
-      prevData.map((row) => (row.id === id ? { ...row, isActive: newActive } : row))
-    );
+  const handleActiveToggleRequest = useCallback((person: DeliveryPersonRow, checked: boolean) => {
+    setConfirmState({
+      open: true,
+      person,
+      nextValue: checked,
+    });
   }, []);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmState({
+      open: false,
+      person: null,
+      nextValue: false,
+    });
+  }, []);
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!confirmState.person) return;
+
+    const { person, nextValue } = confirmState;
+
+    try {
+      setTableData((prev) => prev.map((item) => (item.id === person.id ? { ...item, isActive: nextValue } : item)));
+      await toggleDeliveryPersonStatus({ userId: person.id, isActive: nextValue }).unwrap();
+      enqueueSnackbar(
+        `${person.firstname} ${person.lastname} has been ${nextValue ? 'activated' : 'deactivated'} successfully.`,
+        { variant: 'success' }
+      );
+      handleCloseConfirm();
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to update delivery person status.', {
+        variant: 'error',
+      });
+    }
+  }, [confirmState, enqueueSnackbar, handleCloseConfirm, toggleDeliveryPersonStatus]);
 
   const handleViewRow = useCallback((id: number) => {
     router.push(paths.dashboard.deliveryPerson.details(id.toString()));
   }, [router]);
 
-  // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Container maxWidth={false}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-        <Typography variant="h4">Delivery Persons</Typography>
+        <Box>
+          <Typography variant="h4">Delivery Persons</Typography>
+          {isLoading && (
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+              Loading delivery persons...
+            </Typography>
+          )}
+          {isError && (
+            <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
+              Failed to load delivery persons from API. Showing fallback data.
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       <Card>
@@ -116,7 +194,6 @@ export default function DeliveryPersonListView() {
               <TableRow>
                 <TableCell>Person</TableCell>
                 <TableCell>Contact</TableCell>
-                <TableCell>Verified</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -143,15 +220,9 @@ export default function DeliveryPersonListView() {
                   </TableCell>
 
                   <TableCell>
-                    <Label color={row.isVerified ? 'success' : 'warning'}>
-                      {row.isVerified ? 'Yes' : 'No'}
-                    </Label>
-                  </TableCell>
-
-                  <TableCell>
                     <Switch
                       checked={row.isActive}
-                      onChange={(e) => handleActiveChange(row.id, e.target.checked)}
+                      onChange={(e) => handleActiveToggleRequest(row, e.target.checked)}
                     />
                   </TableCell>
 
@@ -199,6 +270,25 @@ export default function DeliveryPersonListView() {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
+
+      <Dialog open={confirmState.open} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Status Change</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {confirmState.person
+              ? `Are you sure you want to ${confirmState.nextValue ? 'activate' : 'deactivate'} ${confirmState.person.firstname} ${confirmState.person.lastname}?`
+              : 'Are you sure you want to update this delivery person status?'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={handleCloseConfirm}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleConfirmToggle}>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

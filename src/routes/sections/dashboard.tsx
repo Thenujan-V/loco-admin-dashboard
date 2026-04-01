@@ -20,10 +20,9 @@ const StationsPage = lazy(() => import('src/pages/dashboard/train-info/stations/
 const TrainsPage = lazy(() => import('src/pages/dashboard/train-info/trains/trains'));
 const RoutesPage = lazy(() => import('src/pages/dashboard/train-info/routes/routes'));
 const LinesPage = lazy(() => import('src/pages/dashboard/train-info/lines/lines'));
-const LineStationsPage = lazy(() => import('src/pages/dashboard/train-info/line-stations/line-stations'));
+const LineDetailsPage = lazy(() => import('src/pages/dashboard/train-info/lines/details'));
 const SchedulingPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/scheduling'));
 const SchedulingDetailsPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/details'));
-const StationStopsPage = lazy(() => import('src/pages/dashboard/train-schedule/station-stops/station-stops'));
 
 const RestaurantListPage = lazy(() => import('src/pages/dashboard/restaurants/list'));
 const RestaurantDetailsPage = lazy(() => import('src/pages/dashboard/restaurants/details'));
@@ -79,7 +78,7 @@ export const dashboardRoutes = [
           { path: 'trains', element: <TrainsPage /> },
           { path: 'routes', element: <RoutesPage /> },
           { path: 'lines', element: <LinesPage /> },
-          { path: 'line-stations', element: <LineStationsPage /> },
+          { path: 'lines/:id', element: <LineDetailsPage /> },
         ],
       },
       {
@@ -88,7 +87,6 @@ export const dashboardRoutes = [
           { element: <SchedulingPage />, index: true },
           { path: 'scheduling', element: <SchedulingPage /> },
           { path: 'scheduling/:id', element: <SchedulingDetailsPage /> },
-          { path: 'station-stops', element: <StationStopsPage /> },
         ],
       },
       {

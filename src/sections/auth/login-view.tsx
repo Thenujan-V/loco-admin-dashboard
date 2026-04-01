@@ -29,7 +29,7 @@ import { EmailInboxIcon } from 'src/assets/icons';
 // ----------------------------------------------------------------------
 
 export default function JwtLoginView() {
-  const { sendOtp } = useAuthContext();
+  const { login } = useAuthContext();
 
   const router = useRouter();
 
@@ -38,12 +38,8 @@ export default function JwtLoginView() {
   const password = useBoolean();
 
   const LoginSchema = Yup.object().shape({
-    phoneNumber: Yup.string()
-      .required('Mobile Number is required')
-      .matches(/^\+?[0-9]{10,15}$/, 'Mobile Number must be valid'),
-
-    password: Yup.string()
-      .required('Password is required'),
+    email: Yup.string().required('Email is required').email('Email must be a valid email address'),
+    password: Yup.string().required('Password is required'),
   });
 
   const methods = useForm({
@@ -57,15 +53,7 @@ export default function JwtLoginView() {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await sendOtp?.(data.phoneNumber, data.password);
-
-      const searchParams = new URLSearchParams({
-        mobile: data.phoneNumber,
-      }).toString();
-
-      const href = `${paths.auth.otp}?${searchParams}`;
-
-      router.push(href);
+      await login?.(data.email, data.password);
     } catch (error:any) {
       setErrorMsg(error.message);
     }
@@ -86,7 +74,7 @@ export default function JwtLoginView() {
     <Stack spacing={2.5}>
       {!!errorMsg && <Alert severity="error">{errorMsg}</Alert>}
 
-      <RHFTextField name="phoneNumber" label="Mobile Number" />
+      <RHFTextField name="email" label="Email Address" />
 
       <RHFTextField
         name="password"

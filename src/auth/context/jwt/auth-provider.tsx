@@ -10,6 +10,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
 import { useVerifyUserMutation, useVerifyDeviceMutation, useResendOtpMutation } from 'src/store/auth/auth-api';
+import { adminLogin } from './admin-auth-api';
 // ----------------------------------------------------------------------
 
 const initialState = {
@@ -246,6 +247,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [router, verifyUser]);
 
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const response = await adminLogin({ email, password });
+      const user = {
+        ...response.user,
+        email: response.user?.email || email,
+      };
+
+      setSession(response.accessToken);
+      localStorage.setItem(STORAGE_KEY, response.accessToken);
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+
+      if (response.refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
+      } else {
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
+
+      dispatch({
+        type: 'LOGIN',
+        payload: {
+          user,
+        },
+      });
+
+      router.push(paths.dashboard.root);
+    } catch (error: any) {
+      throw new Error(error?.message || 'Login failed');
+    }
+  }, [router]);
+
   // SENDOTP
   const ResendOtp = useCallback(
     async (phoneNumber: string, deviceId: string): Promise<void> => {
@@ -353,13 +385,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authenticated: status === 'authenticated',
       unauthenticated: status === 'unauthenticated',
       //
+      login,
       sendOtp,
       verifyOtpCode,
       register,
       logout,
       ResendOtp,
     }),
-    [state.user, status, sendOtp, verifyOtpCode, logout, ResendOtp]
+    [state.user, status, login, sendOtp, verifyOtpCode, logout, ResendOtp]
   );
 
   return <AuthContext.Provider value={memoizedValue}>{children}</AuthContext.Provider>;
