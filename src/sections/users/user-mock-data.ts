@@ -195,5 +195,14 @@ export const getUserById = (id: string) =>
 export const getOrdersByUserId = (userId: number) =>
   MOCK_ORDERS.filter((order) => order.userId === userId);
 
+export const getOrdersByPickupPersonId = (pickupPersonId: number) =>
+  MOCK_ORDERS.filter((order) => order.pickupPersonId === pickupPersonId);
+
+export const getOrdersByDeliveryPersonId = (deliveryPersonId: number) =>
+  MOCK_ORDERS.filter((order) => order.deliveryPersonId === deliveryPersonId);
+
+export const getOrdersByRestaurantName = (restaurantName: string) =>
+  MOCK_ORDERS.filter((order) => order.restaurant.name === restaurantName);
+
 export const getOrderById = (id: string) =>
   MOCK_ORDERS.find((order) => order.orderId === id) ?? MOCK_ORDERS[0];

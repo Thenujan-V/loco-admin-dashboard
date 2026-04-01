@@ -83,28 +83,19 @@ export function useNavData() {
             ],
           },
           {
-            title: 'Restaurants Info',
-            path: paths.dashboard.restaurants.root,
+            title: 'Restaurants',
+            path: paths.dashboard.restaurants.list,
             icon: ICONS.tour,
-            children: [
-              { title: 'List', path: paths.dashboard.restaurants.list },
-            ],
           },
           {
             title: 'Pickup Person',
-            path: paths.dashboard.pickupPerson.root,
+            path: paths.dashboard.pickupPerson.list,
             icon: ICONS.user,
-            children: [
-              { title: 'List', path: paths.dashboard.pickupPerson.list },
-            ],
           },
           {
             title: 'Delivery Person',
-            path: paths.dashboard.deliveryPerson.root,
+            path: paths.dashboard.deliveryPerson.list,
             icon: ICONS.tour,
-            children: [
-              { title: 'List', path: paths.dashboard.deliveryPerson.list },
-            ],
           },
           {
             title: 'Foods',

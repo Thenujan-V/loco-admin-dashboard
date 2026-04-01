@@ -42,11 +42,11 @@ export default function NavVertical({ openNav, onCloseNav }) {
     <Stack direction="row"
       alignItems="center"
       justifyContent="center"
-      spacing={2}
+      spacing={1}
       sx={{ mt: 3, ml: 0, mb: 1, mr: 2 }}
     >
       <Logo />
-      <Typography variant="h6">Loco Munch</Typography>
+      <Typography variant="h4">Loco Munch</Typography>
     </Stack>
 
   );

@@ -43,24 +43,24 @@ export type PickupPersonRow = {
   image?: string; // Derived or mock image
 };
 
-const MOCK_PICKUP_PERSONS: PickupPersonRow[] = [
+export const MOCK_PICKUP_PERSONS: PickupPersonRow[] = [
   {
-    id: 1,
+    id: 501,
     firstname: 'John',
     lastname: 'Doe',
-    email: 'john.doe@example.com',
-    phoneNumber: '+1 234 567 8900',
+    email: 'john.pickup@example.com',
+    phoneNumber: '+1 202 555 0101',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=John',
     isVerified: true,
     isActive: true,
     status: STATUS.APPROVED,
   },
   {
-    id: 2,
+    id: 502,
     firstname: 'Jane',
-    lastname: 'Smith',
-    email: 'jane.smith@example.com',
-    phoneNumber: '+1 987 654 3210',
+    lastname: 'Peris',
+    email: 'jane.pickup@example.com',
+    phoneNumber: '+1 202 555 0103',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=Jane',
     isVerified: false,
     isActive: false,

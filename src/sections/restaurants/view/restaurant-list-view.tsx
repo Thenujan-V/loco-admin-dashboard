@@ -43,7 +43,7 @@ export type RestaurantRow = {
   status: string;
 };
 
-const MOCK_RESTAURANTS: RestaurantRow[] = [
+export const MOCK_RESTAURANTS: RestaurantRow[] = [
   {
     id: 1,
     name: 'Spicy Loco Kitchen',

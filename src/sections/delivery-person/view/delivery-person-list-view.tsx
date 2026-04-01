@@ -43,24 +43,24 @@ export type DeliveryPersonRow = {
   image?: string; 
 };
 
-const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
+export const MOCK_DELIVERY_PERSONS: DeliveryPersonRow[] = [
   {
-    id: 1,
+    id: 701,
     firstname: 'Alex',
     lastname: 'Rider',
-    email: 'alex.rider@example.com',
-    phoneNumber: '+1 456 789 0123',
+    email: 'alex.delivery@example.com',
+    phoneNumber: '+1 202 555 0102',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=Alex',
     isVerified: true,
     isActive: true,
     status: STATUS.APPROVED,
   },
   {
-    id: 2,
+    id: 702,
     firstname: 'Sam',
     lastname: 'Fisher',
-    email: 'sam.fisher@example.com',
-    phoneNumber: '+1 321 654 0987',
+    email: 'sam.delivery@example.com',
+    phoneNumber: '+1 202 555 0104',
     image: 'https://api.dicebear.com/7.x/personas/svg?seed=Sam',
     isVerified: false,
     isActive: false,
