@@ -105,21 +105,27 @@ export default function LineDetailsView({ id }: Props) {
       if (!payload.lineId) return;
 
       try {
-        for (const station of payload.stations) {
-          if (!station.stationId || !station.lineOrder) continue;
+        const stations = payload.stations
+          .filter((station) => station.stationId && station.lineOrder)
+          .map((station) => ({
+            stationId: Number(station.stationId),
+            lineOrder: Number(station.lineOrder),
+          }));
 
-          await createLineStation({
-            lineId: payload.lineId,
-            stations: [
-              {
-                stationId: station.stationId,
-                lineOrder: station.lineOrder,
-              },
-            ],
-          }).unwrap();
+        if (!stations.length) {
+          enqueueSnackbar('Please add at least one valid station row.', { variant: 'warning' });
+          return;
         }
 
-        enqueueSnackbar('Line stations added successfully.', { variant: 'success' });
+        await createLineStation({
+          lineId: Number(payload.lineId),
+          stations,
+        }).unwrap();
+
+        enqueueSnackbar(
+          `${stations.length} line station${stations.length > 1 ? 's' : ''} added successfully.`,
+          { variant: 'success' }
+        );
       } catch (error: any) {
         enqueueSnackbar(error?.data?.message || error?.message || 'Failed to add line stations.', {
           variant: 'error',

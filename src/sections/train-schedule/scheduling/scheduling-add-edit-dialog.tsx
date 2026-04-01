@@ -11,9 +11,12 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 import Iconify from 'src/components/iconify';
 import FormProvider, { RHFTextField, RHFAutocomplete } from 'src/components/hook-form';
+import { normalizeTrainsResponse, useGetTrainsQuery } from 'src/store/trains/train-api';
+import { normalizeRoutesResponse, useGetRoutesQuery } from 'src/store/routes/route-api';
 
 export type SchedulePayload = {
   id?: string;
@@ -27,7 +30,7 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentSchedule?: SchedulePayload | null;
-  onSave: (payloads: SchedulePayload[]) => void;
+  onSave: (payloads: SchedulePayload[]) => Promise<void>;
 };
 
 type FormValuesProps = {
@@ -56,12 +59,19 @@ export const MOCK_DAYS = [
 ];
 
 function ScheduleRow({ index, remove, isEdit }: { index: number; remove: any; isEdit: boolean }) {
-  const { control } = useFormContext();
-
-  const trainId = useWatch({
-    control,
-    name: `schedules.${index}.trainId`,
-  });
+  useFormContext();
+  const { data: trainsData } = useGetTrainsQuery();
+  const { data: routesData } = useGetRoutesQuery();
+  const trainOptions = normalizeTrainsResponse(trainsData).map((train) => ({
+    label: train.name,
+    value: Number(train.id),
+    type: train.type,
+  }));
+  const routeOptions = normalizeRoutesResponse(routesData).map((route) => ({
+    label: route.name,
+    value: Number(route.id),
+    isReverse: route.isReverse,
+  }));
 
   return (
     <Stack spacing={2} direction="row" alignItems="center">
@@ -69,13 +79,12 @@ function ScheduleRow({ index, remove, isEdit }: { index: number; remove: any; is
         <RHFAutocomplete
           name={`schedules.${index}.trainId`}
           label="Train"
-          options={MOCK_TRAINS}
+          options={trainOptions}
         />
         <RHFAutocomplete
           name={`schedules.${index}.routeId`}
           label="Route"
-          options={trainId ? MOCK_ROUTES.filter((r) => r.trainId === trainId) : []}
-          disabled={!trainId}
+          options={routeOptions}
         />
         <RHFAutocomplete
           name={`schedules.${index}.day`}
@@ -100,6 +109,10 @@ function ScheduleRow({ index, remove, isEdit }: { index: number; remove: any; is
 
 export default function SchedulingAddEditDialog({ open, onClose, currentSchedule, onSave }: Props) {
   const isEdit = !!currentSchedule;
+  const { data: trainsData, isLoading: isTrainsLoading } = useGetTrainsQuery();
+  const { data: routesData, isLoading: isRoutesLoading } = useGetRoutesQuery();
+  const trainOptions = normalizeTrainsResponse(trainsData);
+  const routeOptions = normalizeRoutesResponse(routesData);
 
   const ScheduleSchema = Yup.object().shape({
     schedules: Yup.array().of(
@@ -137,7 +150,7 @@ export default function SchedulingAddEditDialog({ open, onClose, currentSchedule
   }, [open, currentSchedule]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.schedules);
+    await onSave(data.schedules);
     onClose();
   });
 
@@ -148,6 +161,18 @@ export default function SchedulingAddEditDialog({ open, onClose, currentSchedule
 
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
+            {!trainOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isTrainsLoading ? 'Loading trains...' : 'No trains available. Please create a train first.'}
+              </Typography>
+            )}
+
+            {!routeOptions.length && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {isRoutesLoading ? 'Loading routes...' : 'No routes available. Please create a route first.'}
+              </Typography>
+            )}
+
             {fields.map((item, index) => (
               <ScheduleRow key={item.id} index={index} remove={remove} isEdit={isEdit} />
             ))}

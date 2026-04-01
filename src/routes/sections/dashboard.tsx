@@ -23,7 +23,6 @@ const LinesPage = lazy(() => import('src/pages/dashboard/train-info/lines/lines'
 const LineDetailsPage = lazy(() => import('src/pages/dashboard/train-info/lines/details'));
 const SchedulingPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/scheduling'));
 const SchedulingDetailsPage = lazy(() => import('src/pages/dashboard/train-schedule/scheduling/details'));
-const StationStopsPage = lazy(() => import('src/pages/dashboard/train-schedule/station-stops/station-stops'));
 
 const RestaurantListPage = lazy(() => import('src/pages/dashboard/restaurants/list'));
 const RestaurantDetailsPage = lazy(() => import('src/pages/dashboard/restaurants/details'));
@@ -88,7 +87,6 @@ export const dashboardRoutes = [
           { element: <SchedulingPage />, index: true },
           { path: 'scheduling', element: <SchedulingPage /> },
           { path: 'scheduling/:id', element: <SchedulingDetailsPage /> },
-          { path: 'station-stops', element: <StationStopsPage /> },
         ],
       },
       {

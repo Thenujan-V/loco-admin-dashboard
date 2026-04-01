@@ -67,9 +67,10 @@ export function useNavData() {
             icon: ICONS.tour,
             children: [
               { title: 'Stations', path: paths.dashboard.trainInfo.stations },
-              { title: 'Trains', path: paths.dashboard.trainInfo.trains },
-              { title: 'Routes', path: paths.dashboard.trainInfo.routes },
               { title: 'Lines', path: paths.dashboard.trainInfo.lines },
+              { title: 'Routes', path: paths.dashboard.trainInfo.routes },
+              { title: 'Trains', path: paths.dashboard.trainInfo.trains },
+
             ],
           },
           {
@@ -78,7 +79,6 @@ export function useNavData() {
             icon: ICONS.calendar,
             children: [
               { title: 'Scheduling', path: paths.dashboard.trainSchedule.scheduling },
-              { title: 'Station Stops', path: paths.dashboard.trainSchedule.stationStops },
             ],
           },
           {

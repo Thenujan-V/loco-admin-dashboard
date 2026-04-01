@@ -27,9 +27,9 @@ import { MOCK_PICKUP_PERSONS } from 'src/sections/pickup-person/view/pickup-pers
 import { MOCK_DELIVERY_PERSONS } from 'src/sections/delivery-person/view/delivery-person-list-view';
 import { MOCK_USERS, MOCK_ORDERS } from 'src/sections/users/user-mock-data';
 import { MOCK_TRAINS, MOCK_ROUTES } from 'src/sections/train-schedule/scheduling/scheduling-add-edit-dialog';
-import { MOCK_SCHEDULES } from 'src/sections/train-schedule/station-stops/station-stop-add-edit-dialog';
 import { useGetLinesQuery, normalizeLinesResponse } from 'src/store/lines/line-api';
 import { useGetStationsQuery, normalizeStationsResponse } from 'src/store/stations/station-api';
+import { useGetSchedulesQuery, normalizeSchedulesResponse } from 'src/store/schedules/schedule-api';
 
 const BRAND = {
   primary: '#FF5A1F',
@@ -119,8 +119,10 @@ export default function DashboardView() {
   const router = useRouter();
   const { data: linesData } = useGetLinesQuery();
   const { data: stationsData } = useGetStationsQuery();
+  const { data: schedulesData } = useGetSchedulesQuery();
   const lineCount = normalizeLinesResponse(linesData).length || 2;
   const stationCount = normalizeStationsResponse(stationsData).length || 2;
+  const scheduleCount = normalizeSchedulesResponse(schedulesData).length || 2;
 
   const stats = useMemo(() => {
     const totalRevenue = MOCK_ORDERS.reduce((sum, order) => sum + order.totalAmount, 0);
@@ -301,7 +303,7 @@ export default function DashboardView() {
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">
                       <Typography variant="body2" sx={{ color: 'rgba(51, 51, 51, 0.72)' }}>Schedules</Typography>
-                      <Typography variant="subtitle2" sx={{ color: BRAND.text }}>{MOCK_SCHEDULES.length}</Typography>
+                      <Typography variant="subtitle2" sx={{ color: BRAND.text }}>{scheduleCount}</Typography>
                     </Stack>
                   </Stack>
                 </Card>
