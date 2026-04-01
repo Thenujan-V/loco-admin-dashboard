@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
@@ -8,6 +8,7 @@ import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
@@ -24,12 +25,23 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import Container from '@mui/material/Container';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import FormControlLabel from '@mui/material/FormControlLabel';
+
+import { useSnackbar } from 'notistack';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
 import { getOrdersByDeliveryPersonId } from 'src/sections/users/user-mock-data';
+import {
+  normalizeDeliveryPersonsResponse,
+  useGetDeliveryPersonsQuery,
+  useToggleDeliveryPersonStatusMutation,
+} from 'src/store/delivery-person/delivery-person-api';
 
 import { MOCK_DELIVERY_PERSONS, STATUS, DeliveryPersonRow } from './delivery-person-list-view';
 
@@ -80,31 +92,74 @@ const formatCurrency = (value: number) =>
     currency: 'USD',
   }).format(value);
 
+const getDefaultDocumentRecord = (person: DeliveryPersonRow): DeliveryPersonDocuments => ({
+  ...person,
+  ...(DELIVERY_DOCUMENTS[person.id] ?? DELIVERY_DOCUMENTS[701]),
+});
+
 export default function DeliveryPersonDetailsView({ id }: Props) {
   const router = useRouter();
-  const selectedPerson = useMemo(
-    () => MOCK_DELIVERY_PERSONS.find((person) => String(person.id) === id) ?? MOCK_DELIVERY_PERSONS[0],
-    [id]
-  );
+  const { enqueueSnackbar } = useSnackbar();
+  const { data } = useGetDeliveryPersonsQuery();
+  const [toggleDeliveryPersonStatus] = useToggleDeliveryPersonStatusMutation();
   const [currentTab, setCurrentTab] = useState('overview');
-  const [data, setData] = useState<DeliveryPersonDocuments>({
-    ...selectedPerson,
-    ...(DELIVERY_DOCUMENTS[selectedPerson.id] ?? DELIVERY_DOCUMENTS[701]),
-  });
   const [viewImage, setViewImage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingActiveValue, setPendingActiveValue] = useState(false);
 
-  const orders = useMemo(() => getOrdersByDeliveryPersonId(data.id), [data.id]);
+  const person = useMemo(() => {
+    const apiPerson = normalizeDeliveryPersonsResponse(data).find((item) => String(item.id) === id);
+
+    if (apiPerson) {
+      return {
+        id: apiPerson.id,
+        firstname: apiPerson.firstname,
+        lastname: apiPerson.lastname,
+        email: apiPerson.email,
+        phoneNumber: apiPerson.phoneNumber,
+        isActive: apiPerson.isActive,
+        status: apiPerson.status || STATUS.PENDING,
+        image: `https://api.dicebear.com/7.x/personas/svg?seed=${encodeURIComponent(`${apiPerson.firstname || 'Delivery'}-${apiPerson.id}`)}`,
+      } satisfies DeliveryPersonRow;
+    }
+
+    return MOCK_DELIVERY_PERSONS.find((item) => String(item.id) === id) ?? MOCK_DELIVERY_PERSONS[0];
+  }, [data, id]);
+
+  const [documentData, setDocumentData] = useState<DeliveryPersonDocuments>(() =>
+    getDefaultDocumentRecord(person)
+  );
+
+  useEffect(() => {
+    setDocumentData((prev) => {
+      const nextBase = getDefaultDocumentRecord(person);
+
+      if (prev.id !== person.id) {
+        return nextBase;
+      }
+
+      return {
+        ...nextBase,
+        userPictureStatus: prev.userPictureStatus,
+        userPictureReason: prev.userPictureReason,
+        userDocumentStatus: prev.userDocumentStatus,
+        userDocumentReason: prev.userDocumentReason,
+      };
+    });
+  }, [person]);
+
+  const orders = useMemo(() => getOrdersByDeliveryPersonId(person.id), [person.id]);
 
   const handleBack = useCallback(() => {
     router.push(paths.dashboard.deliveryPerson.list);
   }, [router]);
 
   const handleDocChange = (field: keyof DeliveryPersonDocuments, value: string) => {
-    setData((prev) => ({ ...prev, [field]: value }));
+    setDocumentData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleOverallStatusChange = (newStatus: string) => {
-    setData((prev) => ({ ...prev, status: newStatus }));
+    setDocumentData((prev) => ({ ...prev, status: newStatus }));
   };
 
   const handleChangeTab = useCallback((_event: React.SyntheticEvent, value: string) => {
@@ -112,50 +167,143 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
   }, []);
 
   const handleSaveVerifications = () => {
-    console.info('Saving verification data:', data);
-    alert('Documents verified and saved successfully!');
+    console.info('Saving verification data:', documentData);
+    enqueueSnackbar('Delivery person verification details saved locally.', { variant: 'success' });
   };
 
+  const handleActiveToggleRequest = useCallback((checked: boolean) => {
+    setPendingActiveValue(checked);
+    setConfirmOpen(true);
+  }, []);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmOpen(false);
+  }, []);
+
+  const handleConfirmToggle = useCallback(async () => {
+    try {
+      await toggleDeliveryPersonStatus({ userId: person.id, isActive: pendingActiveValue }).unwrap();
+      enqueueSnackbar(
+        `${person.firstname} ${person.lastname} has been ${pendingActiveValue ? 'activated' : 'deactivated'} successfully.`,
+        { variant: 'success' }
+      );
+      setConfirmOpen(false);
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to update delivery person status.', {
+        variant: 'error',
+      });
+    }
+  }, [enqueueSnackbar, pendingActiveValue, person.firstname, person.id, person.lastname, toggleDeliveryPersonStatus]);
+
   const renderOverviewTab = (
-    <Card sx={{ mb: 3 }}>
-      <Grid container spacing={3} sx={{ p: 3 }}>
-        <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderRight: (theme) => ({ md: `dashed 1px ${theme.palette.divider}` }) }}>
-          <Avatar src={data.image} sx={{ width: 80, height: 80, mb: 2 }} />
-          <Typography variant="h6">{data.firstname} {data.lastname}</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{data.email}</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{data.phoneNumber}</Typography>
-          <Box mt={2}>
-            <Label color={data.isActive ? 'success' : 'error'}>{data.isActive ? 'Active' : 'Inactive'}</Label>
-            <Label color={data.isVerified ? 'success' : 'warning'} sx={{ ml: 1 }}>{data.isVerified ? 'Verified' : 'Unverified'}</Label>
-          </Box>
-        </Grid>
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card sx={{ p: 3, height: '100%' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+            <Avatar src={person.image} sx={{ width: 88, height: 88 }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h5">
+                {person.firstname} {person.lastname}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                Delivery Person ID #{person.id}
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
+                <Label color={person.isActive ? 'success' : 'error'}>
+                  {person.isActive ? 'Active' : 'Inactive'}
+                </Label>
+                <Label color="info">{documentData.status}</Label>
+              </Stack>
+            </Box>
+          </Stack>
 
-        <Grid size={{ xs: 12, md: 4 }} sx={{ px: { md: 3 }, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Typography variant="body1" sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic' }}>
-            ID #{data.id}
-          </Typography>
-          <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary', mt: 1 }}>
-            Handles final delivery of the order to the user at the assigned station.
-          </Typography>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }} sx={{ pl: { md: 3 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderLeft: (theme) => ({ md: `dashed 1px ${theme.palette.divider}` }) }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>Overall Person Status</Typography>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={data.status}
-              label="Status"
-              onChange={(e) => handleOverallStatusChange(e.target.value)}
-            >
-              <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
-              <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
-              <MenuItem value={STATUS.REJECTED}>REJECTED</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+          <Grid container spacing={2} sx={{ mt: 3 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                First Name
+              </Typography>
+              <Typography variant="body1">{person.firstname}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Last Name
+              </Typography>
+              <Typography variant="body1">{person.lastname}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Email
+              </Typography>
+              <Typography variant="body1">{person.email}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Phone Number
+              </Typography>
+              <Typography variant="body1">{person.phoneNumber}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Total Orders
+              </Typography>
+              <Typography variant="body1">{orders.length}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Role Summary
+              </Typography>
+              <Typography variant="body1">
+                Handles final delivery of the order to the user at the assigned station.
+              </Typography>
+            </Grid>
+          </Grid>
+        </Card>
       </Grid>
-    </Card>
+
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Stack spacing={3} sx={{ height: '100%' }}>
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6">Active Status</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+              Admin can manually enable or disable this delivery person here.
+            </Typography>
+
+            <FormControlLabel
+              sx={{ mt: 3, alignItems: 'flex-start' }}
+              control={
+                <Switch checked={person.isActive} onChange={(event) => handleActiveToggleRequest(event.target.checked)} />
+              }
+              label={
+                <Box>
+                  <Typography variant="subtitle2">
+                    {person.isActive ? 'Delivery person is active' : 'Delivery person is inactive'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Toggle this status to control platform access.
+                  </Typography>
+                </Box>
+              }
+            />
+          </Card>
+
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6">Verification Status</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, mb: 2 }}>
+              Manage the internal verification label used on this profile.
+            </Typography>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select value={documentData.status} label="Status" onChange={(event) => handleOverallStatusChange(event.target.value)}>
+                <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
+                <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
+                <MenuItem value={STATUS.REJECTED}>REJECTED</MenuItem>
+              </Select>
+            </FormControl>
+          </Card>
+        </Stack>
+      </Grid>
+    </Grid>
   );
 
   const renderOrdersTab = (
@@ -196,10 +344,18 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
                 </TableCell>
               </TableRow>
             ))}
+
+            {!orders.length && (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 5 }}>
+                  <Typography variant="subtitle1">No orders found for this delivery person.</Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
-        </TableContainer>
-      </Card>
+      </TableContainer>
+    </Card>
   );
 
   const renderDocumentCard = (
@@ -208,8 +364,8 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
     statusField: keyof DeliveryPersonDocuments,
     reasonField: keyof DeliveryPersonDocuments
   ) => {
-    const statusVal = data[statusField] as string;
-    const reasonVal = data[reasonField] as string;
+    const statusVal = documentData[statusField] as string;
+    const reasonVal = documentData[reasonField] as string;
 
     return (
       <Card sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -224,7 +380,7 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
             objectFit: 'cover',
             borderRadius: 1,
             cursor: 'zoom-in',
-            border: (theme) => `1px solid ${theme.palette.divider}`
+            border: (theme) => `1px solid ${theme.palette.divider}`,
           }}
           onClick={() => setViewImage(imgUrl)}
         />
@@ -232,11 +388,7 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
         <Stack spacing={2} sx={{ mt: 3, flexGrow: 1 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Status</InputLabel>
-            <Select
-              value={statusVal}
-              label="Status"
-              onChange={(e) => handleDocChange(statusField, e.target.value)}
-            >
+            <Select value={statusVal} label="Status" onChange={(event) => handleDocChange(statusField, event.target.value)}>
               <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
               <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
               <MenuItem value={STATUS.REJECTED}>REJECTED</MenuItem>
@@ -250,7 +402,7 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
               rows={2}
               label="Rejection Reason"
               value={reasonVal}
-              onChange={(e) => handleDocChange(reasonField, e.target.value)}
+              onChange={(event) => handleDocChange(reasonField, event.target.value)}
               placeholder="Explain why this document was rejected"
             />
           )}
@@ -263,21 +415,15 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
     <Box>
       <Grid container spacing={3} justifyContent="center">
         <Grid size={{ xs: 12, md: 6 }}>
-          {renderDocumentCard('User Picture', data.userPicture, 'userPictureStatus', 'userPictureReason')}
+          {renderDocumentCard('User Picture', documentData.userPicture, 'userPictureStatus', 'userPictureReason')}
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          {renderDocumentCard('User ID Document', data.userDocument, 'userDocumentStatus', 'userDocumentReason')}
+          {renderDocumentCard('User ID Document', documentData.userDocument, 'userDocumentStatus', 'userDocumentReason')}
         </Grid>
       </Grid>
 
       <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Iconify icon="solar:diskette-bold" />}
-          onClick={handleSaveVerifications}
-        >
+        <Button variant="contained" color="primary" size="large" startIcon={<Iconify icon="solar:diskette-bold" />} onClick={handleSaveVerifications}>
           Save Verifications
         </Button>
       </Box>
@@ -288,13 +434,7 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
     <>
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 5 }}>
-          <Button
-            size="small"
-            color="inherit"
-            onClick={handleBack}
-            startIcon={<Iconify icon="eva:arrow-ios-back-fill" />}
-            sx={{ mr: 2 }}
-          >
+          <Button size="small" color="inherit" onClick={handleBack} startIcon={<Iconify icon="eva:arrow-ios-back-fill" />} sx={{ mr: 2 }}>
             Back
           </Button>
           <Typography variant="h4" sx={{ flexGrow: 1 }}>Delivery Person Profile</Typography>
@@ -311,11 +451,7 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
         {currentTab === 'verification' && renderVerification}
       </Container>
 
-      <Dialog
-        open={!!viewImage}
-        onClose={() => setViewImage(null)}
-        maxWidth="lg"
-      >
+      <Dialog open={!!viewImage} onClose={() => setViewImage(null)} maxWidth="lg">
         <Box sx={{ position: 'relative' }}>
           <IconButton
             onClick={() => setViewImage(null)}
@@ -323,12 +459,21 @@ export default function DeliveryPersonDetailsView({ id }: Props) {
           >
             <Iconify icon="solar:close-circle-bold" />
           </IconButton>
-          <Box
-            component="img"
-            src={viewImage || ''}
-            sx={{ display: 'block', maxWidth: '100%', maxHeight: '90vh' }}
-          />
+          <Box component="img" src={viewImage || ''} sx={{ display: 'block', maxWidth: '100%', maxHeight: '90vh' }} />
         </Box>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Status Change</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {`Are you sure you want to ${pendingActiveValue ? 'activate' : 'deactivate'} ${person.firstname} ${person.lastname}?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={handleCloseConfirm}>Cancel</Button>
+          <Button variant="contained" onClick={handleConfirmToggle}>Confirm</Button>
+        </DialogActions>
       </Dialog>
     </>
   );

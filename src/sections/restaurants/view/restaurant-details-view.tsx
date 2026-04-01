@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
@@ -8,6 +8,7 @@ import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
@@ -24,12 +25,23 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import Container from '@mui/material/Container';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import FormControlLabel from '@mui/material/FormControlLabel';
+
+import { useSnackbar } from 'notistack';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import { useRouter } from 'src/routes/hooks';
 import { paths } from 'src/routes/paths';
 import { getOrdersByRestaurantName } from 'src/sections/users/user-mock-data';
+import {
+  normalizeRestaurantsResponse,
+  useGetRestaurantsQuery,
+  useToggleRestaurantStatusMutation,
+} from 'src/store/restaurants/restaurant-api';
 
 import { MOCK_RESTAURANTS, STATUS, RestaurantRow } from './restaurant-list-view';
 
@@ -89,31 +101,76 @@ const formatCurrency = (value: number) =>
     currency: 'USD',
   }).format(value);
 
+const getDefaultDocumentRecord = (restaurant: RestaurantRow): RestaurantDocuments => ({
+  ...restaurant,
+  ...(RESTAURANT_DOCUMENTS[restaurant.id] ?? RESTAURANT_DOCUMENTS[1]),
+});
+
 export default function RestaurantDetailsView({ id }: Props) {
   const router = useRouter();
-  const selectedRestaurant = useMemo(
-    () => MOCK_RESTAURANTS.find((restaurant) => String(restaurant.id) === id) ?? MOCK_RESTAURANTS[0],
-    [id]
-  );
+  const { enqueueSnackbar } = useSnackbar();
+  const { data } = useGetRestaurantsQuery();
+  const [toggleRestaurantStatus] = useToggleRestaurantStatusMutation();
   const [currentTab, setCurrentTab] = useState('overview');
-  const [data, setData] = useState<RestaurantDocuments>({
-    ...selectedRestaurant,
-    ...(RESTAURANT_DOCUMENTS[selectedRestaurant.id] ?? RESTAURANT_DOCUMENTS[1]),
-  });
   const [viewImage, setViewImage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingActiveValue, setPendingActiveValue] = useState(false);
 
-  const orders = useMemo(() => getOrdersByRestaurantName(data.name), [data.name]);
+  const restaurant = useMemo(() => {
+    const apiRestaurant = normalizeRestaurantsResponse(data).find((item) => String(item.id) === id);
+
+    if (apiRestaurant) {
+      return {
+        id: apiRestaurant.id,
+        name: apiRestaurant.name,
+        address: apiRestaurant.address,
+        email: apiRestaurant.email,
+        phoneNumber: apiRestaurant.phoneNumber,
+        image: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(`${apiRestaurant.name || 'Restaurant'}-${apiRestaurant.id}`)}`,
+        isActive: apiRestaurant.isActive,
+        status: apiRestaurant.status || STATUS.PENDING,
+      } satisfies RestaurantRow;
+    }
+
+    return MOCK_RESTAURANTS.find((item) => String(item.id) === id) ?? MOCK_RESTAURANTS[0];
+  }, [data, id]);
+
+  const [documentData, setDocumentData] = useState<RestaurantDocuments>(() =>
+    getDefaultDocumentRecord(restaurant)
+  );
+
+  useEffect(() => {
+    setDocumentData((prev) => {
+      const nextBase = getDefaultDocumentRecord(restaurant);
+
+      if (prev.id !== restaurant.id) {
+        return nextBase;
+      }
+
+      return {
+        ...nextBase,
+        userPictureStatus: prev.userPictureStatus,
+        userPictureReason: prev.userPictureReason,
+        userDocumentStatus: prev.userDocumentStatus,
+        userDocumentReason: prev.userDocumentReason,
+        restaurantDocumentStatus: prev.restaurantDocumentStatus,
+        restaurantDocumentReason: prev.restaurantDocumentReason,
+      };
+    });
+  }, [restaurant]);
+
+  const orders = useMemo(() => getOrdersByRestaurantName(restaurant.name), [restaurant.name]);
 
   const handleBack = useCallback(() => {
     router.push(paths.dashboard.restaurants.list);
   }, [router]);
 
   const handleDocChange = (field: keyof RestaurantDocuments, value: string) => {
-    setData((prev) => ({ ...prev, [field]: value }));
+    setDocumentData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleOverallStatusChange = (newStatus: string) => {
-    setData((prev) => ({ ...prev, status: newStatus }));
+    setDocumentData((prev) => ({ ...prev, status: newStatus }));
   };
 
   const handleChangeTab = useCallback((_event: React.SyntheticEvent, value: string) => {
@@ -121,49 +178,148 @@ export default function RestaurantDetailsView({ id }: Props) {
   }, []);
 
   const handleSaveVerifications = () => {
-    console.info('Saving verification data:', data);
-    alert('Documents verified and saved successfully!');
+    console.info('Saving verification data:', documentData);
+    enqueueSnackbar('Restaurant verification details saved locally.', { variant: 'success' });
   };
 
+  const handleActiveToggleRequest = useCallback((checked: boolean) => {
+    setPendingActiveValue(checked);
+    setConfirmOpen(true);
+  }, []);
+
+  const handleCloseConfirm = useCallback(() => {
+    setConfirmOpen(false);
+  }, []);
+
+  const handleConfirmToggle = useCallback(async () => {
+    try {
+      await toggleRestaurantStatus({ userId: restaurant.id, isActive: pendingActiveValue }).unwrap();
+      enqueueSnackbar(
+        `${restaurant.name} has been ${pendingActiveValue ? 'activated' : 'deactivated'} successfully.`,
+        { variant: 'success' }
+      );
+      setConfirmOpen(false);
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to update restaurant status.', {
+        variant: 'error',
+      });
+    }
+  }, [enqueueSnackbar, pendingActiveValue, restaurant.id, restaurant.name, toggleRestaurantStatus]);
+
   const renderOverviewTab = (
-    <Card sx={{ mb: 3 }}>
-      <Grid container spacing={3} sx={{ p: 3 }}>
-        <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderRight: (theme) => ({ md: `dashed 1px ${theme.palette.divider}` }) }}>
-          <Avatar src={data.image} sx={{ width: 80, height: 80, mb: 2 }} />
-          <Typography variant="h6">{data.name}</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{data.email}</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{data.phoneNumber}</Typography>
-          <Box mt={2}>
-            <Label color={data.isActive ? 'success' : 'error'}>{data.isActive ? 'Active' : 'Inactive'}</Label>
-            <Label color={data.isVerified ? 'success' : 'warning'} sx={{ ml: 1 }}>{data.isVerified ? 'Verified' : 'Unverified'}</Label>
-          </Box>
-        </Grid>
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card sx={{ p: 3, height: '100%' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+            <Avatar src={restaurant.image} sx={{ width: 88, height: 88 }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h5">{restaurant.name}</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                Restaurant ID #{restaurant.id}
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
+                <Label color={restaurant.isActive ? 'success' : 'error'}>
+                  {restaurant.isActive ? 'Active' : 'Inactive'}
+                </Label>
+                <Label color="info">{documentData.status}</Label>
+              </Stack>
+            </Box>
+          </Stack>
 
-        <Grid size={{ xs: 12, md: 4 }} sx={{ px: { md: 3 }, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>Business Address</Typography>
-          <Typography variant="body1">{data.address}</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
-            This profile shows restaurant verification details and all orders linked to this vendor.
-          </Typography>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }} sx={{ pl: { md: 3 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderLeft: (theme) => ({ md: `dashed 1px ${theme.palette.divider}` }) }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>Overall Restaurant Status</Typography>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={data.status}
-              label="Status"
-              onChange={(e) => handleOverallStatusChange(e.target.value)}
-            >
-              <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
-              <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
-              <MenuItem value={STATUS.REJECTED}>REJECTED</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+          <Grid container spacing={2} sx={{ mt: 3 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Restaurant Name
+              </Typography>
+              <Typography variant="body1">{restaurant.name}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Email
+              </Typography>
+              <Typography variant="body1">{restaurant.email}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Phone Number
+              </Typography>
+              <Typography variant="body1">{restaurant.phoneNumber}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Address
+              </Typography>
+              <Typography variant="body1">{restaurant.address}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Total Orders
+              </Typography>
+              <Typography variant="body1">{orders.length}</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Summary
+              </Typography>
+              <Typography variant="body1">
+                This profile shows restaurant verification details and all orders linked to this vendor.
+              </Typography>
+            </Grid>
+          </Grid>
+        </Card>
       </Grid>
-    </Card>
+
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Stack spacing={3} sx={{ height: '100%' }}>
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6">Active Status</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+              Admin can manually enable or disable this restaurant here.
+            </Typography>
+
+            <FormControlLabel
+              sx={{ mt: 3, alignItems: 'flex-start' }}
+              control={
+                <Switch
+                  checked={restaurant.isActive}
+                  onChange={(event) => handleActiveToggleRequest(event.target.checked)}
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="subtitle2">
+                    {restaurant.isActive ? 'Restaurant is active' : 'Restaurant is inactive'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Toggle this status to control restaurant availability in admin.
+                  </Typography>
+                </Box>
+              }
+            />
+          </Card>
+
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6">Verification Status</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, mb: 2 }}>
+              Manage the internal verification label used on this profile.
+            </Typography>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={documentData.status}
+                label="Status"
+                onChange={(event) => handleOverallStatusChange(event.target.value)}
+              >
+                <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
+                <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
+                <MenuItem value={STATUS.REJECTED}>REJECTED</MenuItem>
+              </Select>
+            </FormControl>
+          </Card>
+        </Stack>
+      </Grid>
+    </Grid>
   );
 
   const renderOrdersTab = (
@@ -204,6 +360,14 @@ export default function RestaurantDetailsView({ id }: Props) {
                 </TableCell>
               </TableRow>
             ))}
+
+            {!orders.length && (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 5 }}>
+                  <Typography variant="subtitle1">No orders found for this restaurant.</Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
@@ -216,8 +380,8 @@ export default function RestaurantDetailsView({ id }: Props) {
     statusField: keyof RestaurantDocuments,
     reasonField: keyof RestaurantDocuments
   ) => {
-    const statusVal = data[statusField] as string;
-    const reasonVal = data[reasonField] as string;
+    const statusVal = documentData[statusField] as string;
+    const reasonVal = documentData[reasonField] as string;
 
     return (
       <Card sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -232,7 +396,7 @@ export default function RestaurantDetailsView({ id }: Props) {
             objectFit: 'cover',
             borderRadius: 1,
             cursor: 'zoom-in',
-            border: (theme) => `1px solid ${theme.palette.divider}`
+            border: (theme) => `1px solid ${theme.palette.divider}`,
           }}
           onClick={() => setViewImage(imgUrl)}
         />
@@ -243,7 +407,7 @@ export default function RestaurantDetailsView({ id }: Props) {
             <Select
               value={statusVal}
               label="Status"
-              onChange={(e) => handleDocChange(statusField, e.target.value)}
+              onChange={(event) => handleDocChange(statusField, event.target.value)}
             >
               <MenuItem value={STATUS.PENDING}>PENDING</MenuItem>
               <MenuItem value={STATUS.APPROVED}>APPROVED</MenuItem>
@@ -258,7 +422,7 @@ export default function RestaurantDetailsView({ id }: Props) {
               rows={2}
               label="Rejection Reason"
               value={reasonVal}
-              onChange={(e) => handleDocChange(reasonField, e.target.value)}
+              onChange={(event) => handleDocChange(reasonField, event.target.value)}
               placeholder="Explain why this document was rejected"
             />
           )}
@@ -271,13 +435,18 @@ export default function RestaurantDetailsView({ id }: Props) {
     <Box>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
-          {renderDocumentCard('User Picture', data.userPicture, 'userPictureStatus', 'userPictureReason')}
+          {renderDocumentCard('User Picture', documentData.userPicture, 'userPictureStatus', 'userPictureReason')}
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
-          {renderDocumentCard('User ID Document', data.userDocument, 'userDocumentStatus', 'userDocumentReason')}
+          {renderDocumentCard('User ID Document', documentData.userDocument, 'userDocumentStatus', 'userDocumentReason')}
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
-          {renderDocumentCard('Restaurant License', data.restaurantDocument, 'restaurantDocumentStatus', 'restaurantDocumentReason')}
+          {renderDocumentCard(
+            'Restaurant License',
+            documentData.restaurantDocument,
+            'restaurantDocumentStatus',
+            'restaurantDocumentReason'
+          )}
         </Grid>
       </Grid>
 
@@ -322,11 +491,7 @@ export default function RestaurantDetailsView({ id }: Props) {
         {currentTab === 'verification' && renderVerification}
       </Container>
 
-      <Dialog
-        open={!!viewImage}
-        onClose={() => setViewImage(null)}
-        maxWidth="lg"
-      >
+      <Dialog open={!!viewImage} onClose={() => setViewImage(null)} maxWidth="lg">
         <Box sx={{ position: 'relative' }}>
           <IconButton
             onClick={() => setViewImage(null)}
@@ -340,6 +505,19 @@ export default function RestaurantDetailsView({ id }: Props) {
             sx={{ display: 'block', maxWidth: '100%', maxHeight: '90vh' }}
           />
         </Box>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Status Change</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {`Are you sure you want to ${pendingActiveValue ? 'activate' : 'deactivate'} ${restaurant.name}?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={handleCloseConfirm}>Cancel</Button>
+          <Button variant="contained" onClick={handleConfirmToggle}>Confirm</Button>
+        </DialogActions>
       </Dialog>
     </>
   );
