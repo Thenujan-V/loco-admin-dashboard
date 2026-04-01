@@ -16,7 +16,9 @@ import TablePagination from '@mui/material/TablePagination';
 import Box from '@mui/material/Box';
 
 import Iconify from 'src/components/iconify';
-import LineStationAddEditDialog, { LineStationPayload, MOCK_STATIONS, MOCK_LINES } from '../line-station-add-edit-dialog';
+import { normalizeLinesResponse, useGetLinesQuery } from 'src/store/lines/line-api';
+import { normalizeStationsResponse, useGetStationsQuery } from 'src/store/stations/station-api';
+import LineStationAddEditDialog, { LineStationPayload } from '../line-station-add-edit-dialog';
 
 // A flat structure just for the list view
 export type LineStationFlatItem = {
@@ -27,6 +29,8 @@ export type LineStationFlatItem = {
 };
 
 export default function LineStationListView() {
+  const { data: linesData } = useGetLinesQuery();
+  const { data: stationsData } = useGetStationsQuery();
   const [tableData, setTableData] = useState<LineStationFlatItem[]>([
     { id: '1', lineId: 1, stationId: 101, lineOrder: 1 },
     { id: '2', lineId: 1, stationId: 102, lineOrder: 2 },
@@ -70,7 +74,7 @@ export default function LineStationListView() {
     }
   }, [page, rowsPerPage, tableData]);
 
-  const handleSaveLineStations = useCallback((payload: LineStationPayload) => {
+  const handleSaveLineStations = useCallback(async (payload: LineStationPayload) => {
     const { lineId, stations } = payload;
     
     setTableData((prevData) => {
@@ -94,6 +98,7 @@ export default function LineStationListView() {
       }));
       return [...prevData, ...newItems];
     });
+    return Promise.resolve();
   }, [currentLineStation]);
 
   const handleNewLineStation = () => {
@@ -103,13 +108,21 @@ export default function LineStationListView() {
 
   // Pagination slice
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const stationOptions = normalizeStationsResponse(stationsData).map((station) => ({
+    label: station.name,
+    value: Number(station.id),
+  }));
+  const lineOptions = normalizeLinesResponse(linesData).map((line) => ({
+    label: line.name,
+    value: Number(line.id),
+  }));
 
   const getStationName = (id: number | null) => {
-    return MOCK_STATIONS.find((s) => s.value === id)?.label || 'Unknown';
+    return stationOptions.find((s) => s.value === id)?.label || 'Unknown';
   };
 
   const getLineName = (id: number | null) => {
-    return MOCK_LINES.find((l) => l.value === id)?.label || 'Unknown';
+    return lineOptions.find((l) => l.value === id)?.label || 'Unknown';
   };
 
   return (

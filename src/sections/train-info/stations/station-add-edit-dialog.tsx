@@ -26,7 +26,7 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentStation?: StationItem | null;
-  onSave: (stations: StationItem[]) => void;
+  onSave: (stations: StationItem[]) => Promise<void>;
 };
 
 type FormValuesProps = {
@@ -70,7 +70,7 @@ export default function StationAddEditDialog({ open, onClose, currentStation, on
   }, [open, currentStation]);
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.stations);
+    await onSave(data.stations);
     onClose();
   });
 
