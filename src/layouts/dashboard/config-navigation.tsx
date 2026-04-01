@@ -77,9 +77,6 @@ export function useNavData() {
             title: 'Train Schedule',
             path: paths.dashboard.trainSchedule.root,
             icon: ICONS.calendar,
-            children: [
-              { title: 'Scheduling', path: paths.dashboard.trainSchedule.scheduling },
-            ],
           },
           {
             title: 'Restaurants',

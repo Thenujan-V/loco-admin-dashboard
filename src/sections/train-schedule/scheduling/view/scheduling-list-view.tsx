@@ -174,7 +174,7 @@ export default function SchedulingListView() {
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
           <Box>
-            <Typography variant="h4">Scheduling</Typography>
+            <Typography variant="h4">Train Schedule</Typography>
             {isLoading && (
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
                 Loading schedules...

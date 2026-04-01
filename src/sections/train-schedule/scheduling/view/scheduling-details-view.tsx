@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 import Box from '@mui/material/Box';
 import Label from 'src/components/label';
 
@@ -53,6 +54,8 @@ export default function SchedulingDetailsView({ id }: Props) {
   const [createStationStops] = useCreateStationStopsMutation();
   const [updateStationStops] = useUpdateStationStopsMutation();
   const [deleteStationStop] = useDeleteStationStopMutation();
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const schedule =
     normalizeSingleScheduleResponse(scheduleData) ?? {
@@ -61,37 +64,61 @@ export default function SchedulingDetailsView({ id }: Props) {
       routeId: 10,
       day: ['Monday', 'Tuesday'],
       dayOffset: 0,
+      train: null,
+      route: null,
     };
   const train = normalizeTrainsResponse(trainsData).find((t) => Number(t.id) === schedule.trainId);
   const route = normalizeRoutesResponse(routesData).find((r) => Number(r.id) === schedule.routeId);
+  const trainDetails =
+    schedule.trainId === null
+      ? { label: 'Unknown', type: 'Unknown' }
+      : schedule.train
+        ? { label: schedule.train.name || `Train #${schedule.trainId}`, type: schedule.train.type || 'Unknown' }
+      : train
+        ? { label: train.name, type: train.type || 'Unknown' }
+        : { label: `Train #${schedule.trainId}`, type: 'Unknown' };
+  const routeDetails =
+    schedule.routeId === null
+      ? { label: 'Unknown', isReverse: false }
+      : schedule.route
+        ? { label: schedule.route.name || `Route #${schedule.routeId}`, isReverse: schedule.route.isReverse }
+      : route
+        ? { label: route.name, isReverse: route.isReverse }
+        : { label: `Route #${schedule.routeId}`, isReverse: false };
 
-  const normalizedStops = normalizeStationStopsResponse(stationStopsData);
+  const normalizedStops = useMemo(
+    () =>
+      normalizeStationStopsResponse(stationStopsData).sort(
+        (a, b) => (a.stopOrder ?? 0) - (b.stopOrder ?? 0)
+      ),
+    [stationStopsData]
+  );
   const [deleteTarget, setDeleteTarget] = useState<{ id: string | number; stationName: string } | null>(null);
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const stationMap = new Map(
-    normalizeStationsResponse(stationsData).map((station) => [Number(station.id), station.name])
+  const stationMap = useMemo(
+    () => new Map(normalizeStationsResponse(stationsData).map((station) => [Number(station.id), station.name])),
+    [stationsData]
   );
 
   const handleBack = useCallback(() => {
-    router.push(paths.dashboard.trainSchedule.scheduling);
+    router.push(paths.dashboard.trainSchedule.root);
   }, [router]);
 
   const handleSaveStops = useCallback(async (newPayload: StationStopPayload) => {
     try {
-      const hasExistingIds = newPayload.stops.some((stop) => stop.id);
+      const stops = newPayload.stops.map((stop) => ({
+        stationId: Number(stop.stationId),
+        stopOrder: Number(stop.stopOrder),
+        arrivalTime: stop.arrivalTime,
+        arrivalDayOffset: Number(stop.arrivalDayOffset),
+        departureTime: stop.departureTime,
+        departureDayOffset: Number(stop.departureDayOffset),
+      }));
 
-      if (hasExistingIds) {
+      if (normalizedStops.length) {
         await updateStationStops({
           scheduleId: Number(newPayload.scheduleId),
-          stops: newPayload.stops
-            .filter((stop) => stop.id)
-            .map((stop) => ({
-              id: stop.id as string | number,
-              arrivalTime: stop.arrivalTime,
-              arrivalDayOffset: Number(stop.arrivalDayOffset),
-              departureTime: stop.departureTime,
-              departureDayOffset: Number(stop.departureDayOffset),
-            })),
+          stops,
         }).unwrap();
         enqueueSnackbar('Station stops updated successfully.', { variant: 'success' });
         return;
@@ -99,14 +126,7 @@ export default function SchedulingDetailsView({ id }: Props) {
 
       await createStationStops({
         scheduleId: Number(newPayload.scheduleId),
-        stops: newPayload.stops.map((stop) => ({
-          stationId: Number(stop.stationId),
-          stopOrder: Number(stop.stopOrder),
-          arrivalTime: stop.arrivalTime,
-          arrivalDayOffset: Number(stop.arrivalDayOffset),
-          departureTime: stop.departureTime,
-          departureDayOffset: Number(stop.departureDayOffset),
-        })),
+        stops,
       }).unwrap();
       enqueueSnackbar('Station stops added successfully.', { variant: 'success' });
     } catch (error: any) {
@@ -115,7 +135,7 @@ export default function SchedulingDetailsView({ id }: Props) {
       });
       throw error;
     }
-  }, [createStationStops, enqueueSnackbar, updateStationStops]);
+  }, [createStationStops, enqueueSnackbar, normalizedStops.length, updateStationStops]);
 
   const currentStops: StationStopPayload = {
     id: `stops-${id}`,
@@ -130,6 +150,7 @@ export default function SchedulingDetailsView({ id }: Props) {
       departureDayOffset: stop.departureDayOffset,
     })),
   };
+  const paginatedStops = currentStops.stops.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const getStationName = (idNum: number | null) => {
     if (idNum === null) return 'Unknown';
@@ -142,13 +163,25 @@ export default function SchedulingDetailsView({ id }: Props) {
     try {
       await deleteStationStop({ id: deleteTarget.id, scheduleId: id }).unwrap();
       enqueueSnackbar(`${deleteTarget.stationName} removed successfully.`, { variant: 'success' });
+      if (page > 0 && currentStops.stops.length - 1 <= page * rowsPerPage) {
+        setPage(page - 1);
+      }
       setDeleteTarget(null);
     } catch (error: any) {
       enqueueSnackbar(error?.data?.message || error?.message || 'Failed to remove station stop.', {
         variant: 'error',
       });
     }
-  }, [deleteStationStop, deleteTarget, enqueueSnackbar, id]);
+  }, [currentStops.stops.length, deleteStationStop, deleteTarget, enqueueSnackbar, id, page, rowsPerPage]);
+
+  const handleChangePage = useCallback((_event: unknown, newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  }, []);
 
   return (
     <>
@@ -164,44 +197,85 @@ export default function SchedulingDetailsView({ id }: Props) {
             Back
           </Button>
           <Typography variant="h4" sx={{ flexGrow: 1 }}>Schedule Overview</Typography>
-
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Iconify icon="solar:pen-bold" />}
-            onClick={() => setOpenAddDialog(true)}
-          >
-            Manage Station Stops
-          </Button>
         </Box>
 
         <Box display="grid" gridTemplateColumns={{ xs: 'repeat(1, 1fr)', md: 'repeat(3, 1fr)' }} gap={3} mb={5}>
           <Card sx={{ p: 3, pt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-             <Iconify icon="solar:train-bold-duotone" width={48} sx={{ color: 'primary.main', mb: 2 }} />
+             <Box
+               sx={{
+                 width: 72,
+                 height: 72,
+                 borderRadius: '50%',
+                 display: 'flex',
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 bgcolor: 'primary.lighter',
+                 color: 'primary.main',
+                 mb: 2,
+               }}
+             >
+               <Iconify icon="solar:train-bold-duotone" width={40} />
+             </Box>
              <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Train</Typography>
-             <Typography variant="h6">{train?.name || 'Unknown'} ({train?.type || 'N/A'})</Typography>
+             <Typography variant="h6">{trainDetails.label}</Typography>
+             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+               {trainDetails.type}
+             </Typography>
           </Card>
 
           <Card sx={{ p: 3, pt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
              <Iconify icon="solar:map-point-wave-bold-duotone" width={48} sx={{ color: 'warning.main', mb: 2 }} />
              <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Route</Typography>
-             <Typography variant="h6">{route?.name || 'Unknown'}</Typography>
-             {route?.isReverse && <Label color="error" sx={{ mt: 1 }}>Reversed</Label>}
+             <Typography variant="h6">{routeDetails.label}</Typography>
+             <Label color={routeDetails.isReverse ? 'warning' : 'success'} sx={{ mt: 1 }}>
+               {routeDetails.isReverse ? 'Reversed' : 'Not Reversed'}
+             </Label>
           </Card>
 
           <Card sx={{ p: 3, pt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
              <Iconify icon="solar:calendar-date-bold-duotone" width={48} sx={{ color: 'info.main', mb: 2 }} />
-             <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Operating Days</Typography>
+             <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Days Running</Typography>
              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'center', mt: 1 }}>
                {schedule.day.map((d) => (
                  <Label key={d} color="info">{d}</Label>
                ))}
              </Box>
+             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>
+               Day Offset: {schedule.dayOffset ?? 0}
+             </Typography>
           </Card>
         </Box>
 
+        <Card sx={{ p: 3, mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              gap: 2,
+              alignItems: { xs: 'flex-start', md: 'center' },
+            }}
+          >
+            <Box>
+              <Typography variant="h6">Schedule Stations</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                Add, edit, and remove stops for this schedule directly from the overview page.
+              </Typography>
+            </Box>
+
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Iconify icon={normalizedStops.length ? 'solar:pen-bold' : 'mingcute:add-line'} />}
+              onClick={() => setOpenAddDialog(true)}
+            >
+              {normalizedStops.length ? 'Edit Schedule Stations' : 'Add Schedule Stations'}
+            </Button>
+          </Box>
+        </Card>
+
         <Card>
-          <CardHeader title="Configured Stops" sx={{ mb: 3 }} />
+          <CardHeader title="Configured Stations" sx={{ mb: 3 }} />
           <Divider />
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <Table sx={{ minWidth: 800 }}>
@@ -218,8 +292,8 @@ export default function SchedulingDetailsView({ id }: Props) {
               </TableHead>
 
               <TableBody>
-                {currentStops.stops.map((row, index) => (
-                  <TableRow key={index} hover>
+                {paginatedStops.map((row) => (
+                  <TableRow key={row.id ?? `${row.stationId}-${row.stopOrder}`} hover>
                     <TableCell>{row.stopOrder}</TableCell>
                     <TableCell sx={{ fontWeight: 'fontWeightMedium' }}>{getStationName(row.stationId)}</TableCell>
                     <TableCell>{row.arrivalTime}</TableCell>
@@ -245,13 +319,22 @@ export default function SchedulingDetailsView({ id }: Props) {
                 {(!currentStops.stops || currentStops.stops.length === 0) && (
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                      <Typography variant="subtitle1">No stops configured for this schedule</Typography>
+                      <Typography variant="subtitle1">No stations configured for this schedule</Typography>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            component="div"
+            page={page}
+            count={currentStops.stops.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handleChangePage}
+            rowsPerPageOptions={[5, 10, 25]}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </Card>
       </Container>
 

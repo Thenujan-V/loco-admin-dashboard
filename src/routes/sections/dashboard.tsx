@@ -85,8 +85,7 @@ export const dashboardRoutes = [
         path: 'train-schedule',
         children: [
           { element: <SchedulingPage />, index: true },
-          { path: 'scheduling', element: <SchedulingPage /> },
-          { path: 'scheduling/:id', element: <SchedulingDetailsPage /> },
+          { path: ':id', element: <SchedulingDetailsPage /> },
         ],
       },
       {

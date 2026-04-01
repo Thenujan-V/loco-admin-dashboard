@@ -12,6 +12,8 @@ import { lineStationApi } from "./line-stations/line-station-api";
 import { routeApi } from "./routes/route-api";
 import { scheduleApi } from "./schedules/schedule-api";
 import { stationStopApi } from "./station-stops/station-stop-api";
+import { categoryItemApi } from "./category-items/category-item-api";
+import { defaultItemApi } from "./default-items/default-item-api";
 
 const homeSlice = createSlice({
     name: "home",
@@ -41,6 +43,8 @@ const store = configureStore({
         [routeApi.reducerPath]: routeApi.reducer,
         [scheduleApi.reducerPath]: scheduleApi.reducer,
         [stationStopApi.reducerPath]: stationStopApi.reducer,
+        [categoryItemApi.reducerPath]: categoryItemApi.reducer,
+        [defaultItemApi.reducerPath]: defaultItemApi.reducer,
     },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware()
         .concat(authApi.middleware)
@@ -56,6 +60,8 @@ const store = configureStore({
         .concat(routeApi.middleware)
         .concat(scheduleApi.middleware)
         .concat(stationStopApi.middleware)
+        .concat(categoryItemApi.middleware)
+        .concat(defaultItemApi.middleware)
 });
 
 export const homeActions = homeSlice.actions;
