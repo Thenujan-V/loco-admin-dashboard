@@ -9,6 +9,7 @@ export interface AuthContextType {
     authenticated: boolean;
     unauthenticated: boolean;
     // register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<void>;
     sendOtp: (phoneNumber: string, password: string) => Promise<void>;
     ResendOtp: (phoneNumber: string, DeviceID: string) => Promise<void>;
     verifyOtpCode: (code: string, phoneNumber: string) => Promise<void>;
