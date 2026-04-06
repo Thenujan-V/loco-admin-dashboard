@@ -27,8 +27,7 @@ export type FoodCategoryItem = {
 type Props = {
   open: boolean;
   onClose: VoidFunction;
-  currentCategory?: FoodCategoryItem | null;
-  onSave: (payload: FoodCategoryItem[]) => void;
+  onSave: (payload: FoodCategoryItem[]) => Promise<void>;
 };
 
 // We wrap the list inside an array field for multiple insertions at once during creation
@@ -36,8 +35,8 @@ type FormValuesProps = {
   categories: FoodCategoryItem[];
 };
 
-function CategoryRow({ index, remove }: { index: number; remove: any }) {
-  const { control, setValue } = useFormContext();
+function CategoryRow({ index, remove, canRemove }: { index: number; remove: any; canRemove: boolean }) {
+  const { setValue } = useFormContext();
 
   const handleDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -74,14 +73,16 @@ function CategoryRow({ index, remove }: { index: number; remove: any }) {
           label="Description"
         />
       </Box>
-      
+      {canRemove && (
+        <IconButton color="error" onClick={() => remove(index)} sx={{ flexShrink: 0 }}>
+          <Iconify icon="solar:trash-bin-trash-bold" />
+        </IconButton>
+      )}
     </Stack>
   );
 }
 
-export default function FoodCategoryAddEditDialog({ open, onClose, currentCategory, onSave }: Props) {
-  const isEdit = !!currentCategory;
-
+export default function FoodCategoryAddEditDialog({ open, onClose, onSave }: Props) {
   const CategorySchema = Yup.object().shape({
     categories: Yup.array().of(
       Yup.object().shape({
@@ -101,7 +102,7 @@ export default function FoodCategoryAddEditDialog({ open, onClose, currentCatego
   });
 
   const defaultValues = {
-    categories: currentCategory ? [currentCategory] : [getEmptyCategory()],
+    categories: [getEmptyCategory()],
   };
 
   const methods = useForm<FormValuesProps>({
@@ -120,35 +121,33 @@ export default function FoodCategoryAddEditDialog({ open, onClose, currentCatego
     if (open) {
       reset(defaultValues as any);
     }
-  }, [open, currentCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.categories);
+    await onSave(data.categories);
     onClose();
   });
 
   return (
     <Dialog fullWidth maxWidth="xl" open={open} onClose={onClose}>
       <FormProvider methods={methods} onSubmit={onSubmit}>
-        <DialogTitle>{isEdit ? 'Edit Category' : 'Add New Categories'}</DialogTitle>
+        <DialogTitle>Add New Categories</DialogTitle>
 
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {fields.map((item, index) => (
-              <CategoryRow key={item.id} index={index} remove={remove} />
+              <CategoryRow key={item.id} index={index} remove={remove} canRemove={fields.length > 1} />
             ))}
 
-            {!isEdit && (
-              <Button
-                size="small"
-                color="primary"
-                startIcon={<Iconify icon="mingcute:add-line" />}
-                onClick={() => append(getEmptyCategory())}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                Add Another Category
-              </Button>
-            )}
+            <Button
+              size="small"
+              color="primary"
+              startIcon={<Iconify icon="mingcute:add-line" />}
+              onClick={() => append(getEmptyCategory())}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Add Another Category
+            </Button>
           </Stack>
         </DialogContent>
 
@@ -158,7 +157,7 @@ export default function FoodCategoryAddEditDialog({ open, onClose, currentCatego
           </Button>
 
           <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {isEdit ? 'Save Changes' : 'Create'}
+            Create
           </Button>
         </DialogActions>
       </FormProvider>

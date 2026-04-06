@@ -113,7 +113,7 @@ function StopRow({
 }
 
 export default function StationStopAddEditDialog({ open, onClose, currentStopConfig, onSave, fixedScheduleId }: Props) {
-  const isEdit = !!currentStopConfig;
+  const isEdit = !!currentStopConfig?.stops?.length;
   const { data: schedulesData, isLoading: isSchedulesLoading } = useGetSchedulesQuery();
   const { data: stationsData, isLoading: isStationsLoading } = useGetStationsQuery();
   const scheduleOptions = normalizeSchedulesResponse(schedulesData).map((schedule) => ({
@@ -173,7 +173,7 @@ export default function StationStopAddEditDialog({ open, onClose, currentStopCon
     if (open) {
       reset(defaultValues as any);
     }
-  }, [open, currentStopConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, currentStopConfig, fixedScheduleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
     await onSave(data);
@@ -190,9 +190,9 @@ export default function StationStopAddEditDialog({ open, onClose, currentStopCon
             <Box display="grid" gridTemplateColumns="repeat(1, 1fr)" gap={2}>
               <RHFAutocomplete
                 name="scheduleId"
-                label="Select Schedule"
+                label="Schedule"
                 options={scheduleOptions}
-                disabled={!!fixedScheduleId} // If opened from Overview Page, lock this
+                disabled={!!fixedScheduleId}
               />
             </Box>
 

@@ -24,16 +24,7 @@ export type StationStopCreatePayload = {
   }>;
 };
 
-export type StationStopUpdatePayload = {
-  scheduleId: number;
-  stops: Array<{
-    id: number | string;
-    arrivalTime: string;
-    arrivalDayOffset: number;
-    departureTime: string;
-    departureDayOffset: number;
-  }>;
-};
+export type StationStopUpdatePayload = StationStopCreatePayload;
 
 export const normalizeStationStopsResponse = (data: any): StationStopRecord[] => {
   const source = Array.isArray(data)
@@ -89,7 +80,7 @@ export const stationStopApi = createApi({
     updateStationStops: builder.mutation<any, StationStopUpdatePayload>({
       query: (body) => ({
         url: 'station-stop/update',
-        method: 'PUT',
+        method: 'POST',
         body,
       }),
       invalidatesTags: (_result, _error, body) => [{ type: 'stationStops', id: String(body.scheduleId) }],

@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
@@ -13,40 +14,49 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
-import Switch from '@mui/material/Switch';
+import Label from 'src/components/label';
+
+import { useSnackbar } from 'notistack';
 
 import Iconify from 'src/components/iconify';
+import {
+  normalizeCategoryItemsResponse,
+  useCreateCategoryItemsMutation,
+  useDeleteCategoryItemMutation,
+  useGetCategoryItemsQuery,
+} from 'src/store/category-items/category-item-api';
 
 import FoodCategoryAddEditDialog, { FoodCategoryItem } from '../food-category-add-edit-dialog';
 
-const MOCK_CATEGORIES: FoodCategoryItem[] = [
-  {
-    id: '1',
-    name: 'Breakfast Combo',
-    description: 'Hot and fresh morning meals',
-    image: 'https://placehold.co/100x100/png?text=Breakfast',
-    availability: true,
-  },
-  {
-    id: '2',
-    name: 'Dinner Standard',
-    description: 'Hearty evening combos to replenish energy',
-    image: 'https://placehold.co/100x100/png?text=Dinner',
-    availability: false,
-  },
-];
-
 export default function FoodCategoryListView() {
-  const [tableData, setTableData] = useState<FoodCategoryItem[]>(MOCK_CATEGORIES);
+  const { enqueueSnackbar } = useSnackbar();
+  const { data, isLoading, isError } = useGetCategoryItemsQuery();
+  const [createCategoryItems] = useCreateCategoryItemsMutation();
+  const [deleteCategoryItem] = useDeleteCategoryItemMutation();
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [currentCategory, setCurrentCategory] = useState<FoodCategoryItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FoodCategoryItem | null>(null);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const tableData = useMemo(
+    () =>
+      normalizeCategoryItemsResponse(data).map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        description: item.description,
+        image: item.image,
+        availability: item.availability,
+      })),
+    [data]
+  );
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -55,57 +65,74 @@ export default function FoodCategoryListView() {
     setPage(0);
   };
 
-  const handleEditRow = useCallback((row: FoodCategoryItem) => {
-    setCurrentCategory(row);
-    setOpenAddDialog(true);
-  }, []);
+  const handleDeleteRow = useCallback(async () => {
+    if (!deleteTarget?.id) return;
 
-  const handleDeleteRow = useCallback((id: string) => {
-    const deleteRow = tableData.filter((row) => row.id !== id);
-    setTableData(deleteRow);
-    if (page > 0 && deleteRow.length <= page * rowsPerPage) {
-      setPage(page - 1);
-    }
-  }, [page, rowsPerPage, tableData]);
-
-  const handleAvailabilityToggle = useCallback((id: string, newAvailability: boolean) => {
-    setTableData((prevData) =>
-      prevData.map((row) => (row.id === id ? { ...row, availability: newAvailability } : row))
-    );
-  }, []);
-
-  const handleSaveCategories = useCallback((newItems: FoodCategoryItem[]) => {
-    setTableData((prevData) => {
-      if (currentCategory) {
-        // Edit mode (array array of 1)
-        const updatedItem = newItems[0];
-        return prevData.map((row) => (row.id === currentCategory.id ? { ...updatedItem, id: row.id } : row));
+    try {
+      await deleteCategoryItem(deleteTarget.id).unwrap();
+      enqueueSnackbar('Category deleted successfully.', { variant: 'success' });
+      if (page > 0 && tableData.length - 1 <= page * rowsPerPage) {
+        setPage(page - 1);
       }
-      // Create mode (array of many)
-      const mappedNewItems = newItems.map((item) => ({ ...item, id: new Date().getTime().toString() + Math.random().toString() }));
-      return [...prevData, ...mappedNewItems];
-    });
-  }, [currentCategory]);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      enqueueSnackbar(error?.data?.message || error?.message || 'Failed to delete category.', {
+        variant: 'error',
+      });
+    }
+  }, [deleteCategoryItem, deleteTarget, enqueueSnackbar, page, rowsPerPage, tableData.length]);
 
-  const handleNewConfig = () => {
-    setCurrentCategory(null);
-    setOpenAddDialog(true);
-  };
+  const handleSaveCategories = useCallback(
+    async (newItems: FoodCategoryItem[]) => {
+      try {
+        await createCategoryItems(
+          newItems.map((item) => ({
+            name: item.name,
+            description: item.description,
+            image: item.image instanceof File ? item.image : null,
+            availability: item.availability ?? true,
+          }))
+        ).unwrap();
 
-  // Pagination slice
+        enqueueSnackbar(
+          `${newItems.length} categor${newItems.length > 1 ? 'ies' : 'y'} created successfully.`,
+          { variant: 'success' }
+        );
+      } catch (error: any) {
+        enqueueSnackbar(error?.data?.message || error?.message || 'Failed to create categories.', {
+          variant: 'error',
+        });
+        throw error;
+      }
+    },
+    [createCategoryItems, enqueueSnackbar]
+  );
+
   const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <>
       <Container maxWidth={false}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 5 }}>
-          <Typography variant="h4">Food Categories</Typography>
-          
+          <Box>
+            <Typography variant="h4">Food Categories</Typography>
+            {isLoading && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                Loading categories...
+              </Typography>
+            )}
+            {isError && (
+              <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
+                Failed to load categories from API.
+              </Typography>
+            )}
+          </Box>
+
           <Button
             variant="contained"
             color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
-            onClick={handleNewConfig}
+            onClick={() => setOpenAddDialog(true)}
           >
             Add New Category
           </Button>
@@ -128,7 +155,12 @@ export default function FoodCategoryListView() {
                   <TableRow key={row.id} hover>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar alt={row.name} src={row.image} variant="rounded" sx={{ width: 48, height: 48, mr: 2 }} />
+                        <Avatar
+                          alt={row.name}
+                          src={typeof row.image === 'string' ? row.image : ''}
+                          variant="rounded"
+                          sx={{ width: 48, height: 48, mr: 2 }}
+                        />
                         <Typography variant="subtitle2" noWrap>
                           {row.name}
                         </Typography>
@@ -142,23 +174,22 @@ export default function FoodCategoryListView() {
                     </TableCell>
 
                     <TableCell>
-                      <Switch
-                        checked={row.availability}
-                        onChange={(e) => handleAvailabilityToggle(row.id as string, e.target.checked)}
-                      />
+                      <Label color={row.availability ? 'success' : 'error'} variant="soft">
+                        {row.availability ? 'Available' : 'Unavailable'}
+                      </Label>
                     </TableCell>
 
                     <TableCell align="right">
-                      <Tooltip title="Edit">
-                        <IconButton color="default" onClick={() => handleEditRow(row)}>
-                          <Iconify icon="solar:pen-bold" />
+                      <Tooltip title="Delete">
+                        <IconButton color="error" onClick={() => setDeleteTarget(row)}>
+                          <Iconify icon="solar:trash-bin-trash-bold" />
                         </IconButton>
                       </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
 
-                {tableData.length === 0 && (
+                {tableData.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                       <Typography variant="subtitle1">No categories found</Typography>
@@ -184,11 +215,27 @@ export default function FoodCategoryListView() {
       {openAddDialog && (
         <FoodCategoryAddEditDialog
           open={openAddDialog}
-          currentCategory={currentCategory}
           onClose={() => setOpenAddDialog(false)}
           onSave={handleSaveCategories}
         />
       )}
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Category</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {`Are you sure you want to delete ${deleteTarget?.name || 'this category'}?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="error" onClick={handleDeleteRow}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

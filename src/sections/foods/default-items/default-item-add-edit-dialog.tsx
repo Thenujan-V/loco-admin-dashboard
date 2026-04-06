@@ -30,7 +30,7 @@ type Props = {
   open: boolean;
   onClose: VoidFunction;
   currentItem?: FoodDefaultItem | null;
-  onSave: (payload: FoodDefaultItem[]) => void;
+  onSave: (payload: FoodDefaultItem[]) => Promise<void>;
   options: { id: string; name: string }[];
 };
 
@@ -38,8 +38,18 @@ type FormValuesProps = {
   items: FoodDefaultItem[];
 };
 
-function ItemRow({ index, remove, options }: { index: number; remove: any; options: any[] }) {
-  const { control, setValue } = useFormContext();
+function ItemRow({
+  index,
+  remove,
+  options,
+  canRemove,
+}: {
+  index: number;
+  remove: any;
+  options: any[];
+  canRemove: boolean;
+}) {
+  const { setValue } = useFormContext();
 
   const handleDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -83,6 +93,11 @@ function ItemRow({ index, remove, options }: { index: number; remove: any; optio
            ))}
         </RHFSelect>
       </Box>
+      {canRemove && (
+        <IconButton color="error" onClick={() => remove(index)} sx={{ flexShrink: 0 }}>
+          <Iconify icon="solar:trash-bin-trash-bold" />
+        </IconButton>
+      )}
     </Stack>
   );
 }
@@ -133,7 +148,7 @@ export default function DefaultItemAddEditDialog({ open, onClose, currentItem, o
   }, [open, currentItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = handleSubmit(async (data) => {
-    onSave(data.items);
+    await onSave(data.items);
     onClose();
   });
 
@@ -145,7 +160,13 @@ export default function DefaultItemAddEditDialog({ open, onClose, currentItem, o
         <DialogContent dividers>
           <Stack spacing={3} sx={{ pt: 1 }}>
             {fields.map((item, index) => (
-              <ItemRow key={item.id} index={index} remove={remove} options={options} />
+              <ItemRow
+                key={item.id}
+                index={index}
+                remove={remove}
+                options={options}
+                canRemove={!isEdit && fields.length > 1}
+              />
             ))}
 
             {!isEdit && (
