@@ -87,6 +87,11 @@ export function useNavData() {
             icon: ICONS.tour,
           },
           {
+            title: 'Reviews',
+            path: paths.dashboard.reviews.list,
+            icon: ICONS.chat,
+          },
+          {
             title: 'Pickup Person',
             path: paths.dashboard.pickupPerson.list,
             icon: ICONS.user,

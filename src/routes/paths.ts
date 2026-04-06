@@ -53,6 +53,10 @@ export const paths = {
       list: `${ROOTS.DASHBOARD}/restaurants/list`,
       details: (id: string) => `${ROOTS.DASHBOARD}/restaurants/${id}`,
     },
+    reviews: {
+      root: `${ROOTS.DASHBOARD}/reviews`,
+      list: `${ROOTS.DASHBOARD}/reviews/list`,
+    },
     pickupPerson: {
       root: `${ROOTS.DASHBOARD}/pickup-person`,
       list: `${ROOTS.DASHBOARD}/pickup-person/list`,

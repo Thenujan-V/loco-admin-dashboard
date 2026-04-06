@@ -26,6 +26,7 @@ const SchedulingDetailsPage = lazy(() => import('src/pages/dashboard/train-sched
 
 const RestaurantListPage = lazy(() => import('src/pages/dashboard/restaurants/list'));
 const RestaurantDetailsPage = lazy(() => import('src/pages/dashboard/restaurants/details'));
+const ReviewListPage = lazy(() => import('src/pages/dashboard/reviews/list'));
 
 const PickupPersonListPage = lazy(() => import('src/pages/dashboard/pickup-person/list'));
 const PickupPersonDetailsPage = lazy(() => import('src/pages/dashboard/pickup-person/details'));
@@ -95,6 +96,13 @@ export const dashboardRoutes = [
           { element: <RestaurantListPage />, index: true },
           { path: 'list', element: <RestaurantListPage /> },
           { path: ':id', element: <RestaurantDetailsPage /> },
+        ],
+      },
+      {
+        path: 'reviews',
+        children: [
+          { element: <ReviewListPage />, index: true },
+          { path: 'list', element: <ReviewListPage /> },
         ],
       },
       {
