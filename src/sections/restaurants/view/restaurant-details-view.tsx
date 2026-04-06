@@ -177,9 +177,43 @@ export default function RestaurantDetailsView({ id }: Props) {
     setCurrentTab(value);
   }, []);
 
-  const handleSaveVerifications = () => {
-    console.info('Saving verification data:', documentData);
-    enqueueSnackbar('Restaurant verification details saved locally.', { variant: 'success' });
+  // const handleSaveVerifications = () => {
+  //   console.info('Saving verification data:', documentData);
+  //   enqueueSnackbar('Restaurant verification details saved locally.', { variant: 'success' });
+  // };
+
+  const handleSaveVerifications = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:3001/doc/restaurant/${documentData.id}/verify`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userPictureStatus: documentData.userPictureStatus,
+            userPictureReason: documentData.userPictureReason,
+
+            userDocumentStatus: documentData.userDocumentStatus,
+            userDocumentReason: documentData.userDocumentReason,
+
+            restaurantDocumentStatus: documentData.restaurantDocumentStatus,
+            restaurantDocumentReason: documentData.restaurantDocumentReason,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed");
+
+      enqueueSnackbar("Verification saved successfully!", {
+        variant: "success",
+      });
+    } catch (error) {
+      enqueueSnackbar("Failed to save verification", {
+        variant: "error",
+      });
+    }
   };
 
   const handleActiveToggleRequest = useCallback((checked: boolean) => {
